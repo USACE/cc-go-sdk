@@ -1,4 +1,4 @@
-module wat
+module github.com/usace/wat-go
 
 go 1.18
 
