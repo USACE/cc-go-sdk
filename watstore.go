@@ -21,6 +21,7 @@ const (
 	watAwsSecretAccessKey = "WAT_AWS_SECRET_ACCESS_KEY"
 	watAwsDefaultRegion   = "WAT_AWS_DEFAULT_REGION"
 	watAwsS3Bucket        = "WAT_AWS_S3_BUCKET"
+	watManifestId         = "WAT_MANIFEST_ID"
 
 	payloadFileName = "payload"
 
@@ -51,22 +52,24 @@ type Payload struct {
 
 //@TODO jobid is really the manifest id
 type WatStore interface {
-	PushObject(manifestid string, key string) error
-	PullObject(manifestid string, key string) error
-	GetObject(manifestid string, key string) ([]byte, error)
-	GetPayload(manifestid string) (Payload, error)
-	SetPayload(manifestid string, p Payload) error //@TODO migrate watcompute?
+	PushObject(key string) error
+	PullObject(key string) error
+	GetObject(key string) ([]byte, error)
+	GetPayload() (Payload, error)
+	SetPayload(p Payload) error //@TODO migrate watcompute?
 }
 
 type S3WatStore struct {
 	fs             filestore.FileStore
 	localRootPath  string
 	remoteRootPath string
+	manifestId     string
 }
 
 //@TODO: Switch to aws golang v2 s3 api and use profile for connection?????
 //@TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
 func NewS3WatStore() (WatStore, error) {
+	manifestId := os.Getenv(watManifestId)
 	config := filestore.S3FSConfig{
 		S3Id:     os.Getenv(watAwsAccessKeyId),
 		S3Key:    os.Getenv(watAwsSecretAccessKey),
@@ -78,11 +81,11 @@ func NewS3WatStore() (WatStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &S3WatStore{fs, localRootPath, remoteRootPath}, nil
+	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId}, nil
 }
 
-func (ws *S3WatStore) PushObject(manifestid string, filename string) error {
-	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, manifestid, filename)}
+func (ws *S3WatStore) PushObject(filename string) error {
+	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	localpath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
 	data, err := os.ReadFile(localpath)
 	if err != nil {
@@ -95,8 +98,8 @@ func (ws *S3WatStore) PushObject(manifestid string, filename string) error {
 	return err
 }
 
-func (ws *S3WatStore) GetObject(manifestid string, filename string) ([]byte, error) {
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, manifestid, filename)}
+func (ws *S3WatStore) GetObject(filename string) ([]byte, error) {
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	reader, err := ws.fs.GetObject(path)
 	if err != nil {
 		return nil, err
@@ -106,9 +109,9 @@ func (ws *S3WatStore) GetObject(manifestid string, filename string) ([]byte, err
 	return ioutil.ReadAll(reader)
 }
 
-func (ws *S3WatStore) GetPayload(manifestid string) (Payload, error) {
+func (ws *S3WatStore) GetPayload() (Payload, error) {
 	payload := Payload{}
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, manifestid, payloadFileName)}
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, payloadFileName)}
 	reader, err := ws.fs.GetObject(path)
 	if err != nil {
 		return payload, err
@@ -120,8 +123,8 @@ func (ws *S3WatStore) GetPayload(manifestid string) (Payload, error) {
 	return payload, err
 }
 
-func (ws *S3WatStore) SetPayload(manifestid string, p Payload) error {
-	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, manifestid, "payload")}
+func (ws *S3WatStore) SetPayload(p Payload) error {
+	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, "payload")}
 
 	data, err := json.Marshal(p)
 	if err != nil {
@@ -134,8 +137,8 @@ func (ws *S3WatStore) SetPayload(manifestid string, p Payload) error {
 	return err
 }
 
-func (ws *S3WatStore) PullObject(manifestid string, filename string) error {
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, manifestid, filename)}
+func (ws *S3WatStore) PullObject(filename string) error {
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	localPath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
 	//open destination
 	f, err := os.Create(localPath)

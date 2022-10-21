@@ -12,7 +12,7 @@ func TestWatPushObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = store.PushObject("1234-5678-9876", "test.json")
+	err = store.PushObject("test.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestWatPullObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = store.PullObject("1234-5678-9876", "test.json")
+	err = store.PullObject("test.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestWatGetObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := store.GetObject("1234-5678-9876", "test.json")
+	data, err := store.GetObject("test.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestWatSetPayload(t *testing.T) {
 			},
 		},
 	}
-	err = store.SetPayload("1234-5678-9876", payload)
+	err = store.SetPayload(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestWatSetPayload2(t *testing.T) {
 		[]DataSource{},
 		[]DataSource{},
 	}
-	err = store.SetPayload("1234-5678-9876", payload)
+	err = store.SetPayload(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestWatSetPayload3(t *testing.T) {
 			},
 		},
 	}
-	err = store.SetPayload("1234-5678-9876", payload)
+	err = store.SetPayload(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestWatSetPayloadM(t *testing.T) {
 		[]DataSource{},
 		[]DataSource{},
 	}
-	err = store.SetPayload("1234-5678-9876", payload)
+	err = store.SetPayload(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
