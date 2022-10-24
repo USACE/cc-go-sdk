@@ -57,6 +57,7 @@ type WatStore interface {
 	GetObject(key string) ([]byte, error)
 	GetPayload() (Payload, error)
 	SetPayload(p Payload) error //@TODO migrate watcompute?
+	RootPath() string
 }
 
 type S3WatStore struct {
@@ -82,6 +83,10 @@ func NewS3WatStore() (WatStore, error) {
 		return nil, err
 	}
 	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId}, nil
+}
+
+func (ws *S3WatStore) RootPath() string {
+	return ws.localRootPath
 }
 
 func (ws *S3WatStore) PushObject(filename string) error {
