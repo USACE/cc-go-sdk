@@ -21,21 +21,21 @@ const (
 func (l Level) String() string {
 	switch l {
 	case INFO:
-		return "some Information"
+		return "some information"
 	case WARN:
-		return "a Warning"
+		return "a warning"
 	case ERROR:
-		return "an Error"
+		return "an error"
 	case DEBUG:
-		return "a Debug statement"
+		return "a debug statement"
 	case FATAL:
-		return "a Fatal message"
+		return "a fatal message"
 	case PANIC:
-		return "a Panic'ed state"
+		return "a panic'ed state"
 	case DISABLED:
 		return ""
 	default:
-		return "Unknown Level"
+		return "unknown level"
 	}
 }
 
@@ -98,6 +98,7 @@ func SetLogLevel(logLevel Level) {
 // Log accepts a message and manages the writing of messages that have levels that exceed or equal the instance level.
 func Log(message Message) {
 	if logger.Level <= message.Level {
+		//this could go to a redis cache, sqs, or just to log files for cloud watch to manage. The point is a single struct and a single endpoint to manage consistent logging across plugins.
 		logger.write(message)
 	}
 }
