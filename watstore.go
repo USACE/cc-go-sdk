@@ -31,6 +31,7 @@ const (
 // @TODO jobid is really the manifest id
 type WatStore interface {
 	PushObject(key string) error
+	PushObjectBytes(data []byte, datasource DataSource) error
 	PullObject(key string) error
 	GetObject(key string) ([]byte, error)
 	GetPayload() (Payload, error)
@@ -38,6 +39,7 @@ type WatStore interface {
 	RootPath() string
 }
 
+// S3WatStore implements the WatStore interface for AWS S3, it also stores a local root, a remote root (prefix), and a manifestId to reduce name collisions.
 type S3WatStore struct {
 	fs             filestore.FileStore
 	localRootPath  string
@@ -45,6 +47,7 @@ type S3WatStore struct {
 	manifestId     string
 }
 
+// NewS3WatStore produces a WatStore backed by an S3 bucket based on environment variables.
 // @TODO: Switch to aws golang v2 s3 api and use profile for connection?????
 // @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
 func NewS3WatStore() (WatStore, error) {
@@ -63,10 +66,12 @@ func NewS3WatStore() (WatStore, error) {
 	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId}, nil
 }
 
+// RootPath provides access to the local root path where files are expected to live for operations like push and pull object.
 func (ws *S3WatStore) RootPath() string {
 	return ws.localRootPath
 }
 
+// PushObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
 func (ws *S3WatStore) PushObject(filename string) error {
 	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	localpath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
@@ -81,6 +86,17 @@ func (ws *S3WatStore) PushObject(filename string) error {
 	return err
 }
 
+// PushObjectBytes takes a slice of bytes as the input data, and a DataSource and pushes the object to the remotePathRoot concatenated with the manifestId and the DataSource Name
+func (ws *S3WatStore) PushObjectBytes(data []byte, datasource DataSource) error {
+	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, datasource.Name)}
+	foo, err := ws.fs.PutObject(s3path, data)
+	if err != nil {
+		log.Println(foo)
+	}
+	return err
+}
+
+// GetObject takes a file name as input and builds a key based on the remoteRootPath, the manifestid and the file name to find an object on S3 and returns the bytes of that object.
 func (ws *S3WatStore) GetObject(filename string) ([]byte, error) {
 	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	reader, err := ws.fs.GetObject(path)
@@ -92,6 +108,7 @@ func (ws *S3WatStore) GetObject(filename string) ([]byte, error) {
 	return ioutil.ReadAll(reader)
 }
 
+// GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
 func (ws *S3WatStore) GetPayload() (Payload, error) {
 	payload := Payload{}
 	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, payloadFileName)}
@@ -106,6 +123,7 @@ func (ws *S3WatStore) GetPayload() (Payload, error) {
 	return payload, err
 }
 
+// SetPayload sets a payload. This is designed for watcompute to use, please do not use this method in a plugin.
 func (ws *S3WatStore) SetPayload(p Payload) error {
 	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, "payload")}
 
@@ -120,6 +138,7 @@ func (ws *S3WatStore) SetPayload(p Payload) error {
 	return err
 }
 
+// PullObject takes a filename input, searches for that file on S3 and copies it to the local directory if a file of that name is found in the remote store.
 func (ws *S3WatStore) PullObject(filename string) error {
 	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	localPath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
