@@ -2,7 +2,7 @@ package wat
 
 import "errors"
 
-// PluginManager is a facade designed to simplify access and usage of plugin api calls
+// PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
 	stores []WatStore
 }
@@ -25,20 +25,19 @@ func InitPluginManager() (PluginManager, error) {
 }
 
 // PushLocalObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
-func (pm PluginManager) PushObject(datasource DataSource) error {
+func (pm PluginManager) PutObject(datasource DataSource) error {
 	for _, ws := range pm.stores {
-		if ws.HandlesDataSource(datasource) {
-			return ws.PushObject(datasource.Name)
-		}
-	}
-	return errors.New("no store handles this datasource")
-}
-
-// PushObjectBytes takes a slice of bytes as the input data, and a DataSource and pushes the object to the remotePathRoot concatenated with the manifestId and the DataSource Name
-func (pm PluginManager) PushObjectBytes(data []byte, datasource DataSource) error {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataSource(datasource) {
-			return ws.PushObjectBytes(data, datasource)
+		if ws.HandlesDataStoreType(datasource.StoreType) {
+			poi := PutObjectInput{
+				FileName:             datasource.Name,
+				FileExtension:        "unknown", //how do i reconcile multiple paths in a datasource?
+				DestinationStoreType: datasource.StoreType,
+				ObjectState:          LocalDisk,
+				Data:                 []byte{},
+				SourcePath:           datasource.Paths[0], //how do i know if it is a local path or not
+				DestPath:             datasource.Paths[0],
+			}
+			return ws.PutObject(poi)
 		}
 	}
 	return errors.New("no store handles this datasource")
@@ -47,7 +46,7 @@ func (pm PluginManager) PushObjectBytes(data []byte, datasource DataSource) erro
 // GetObject takes a file name as input and builds a key based on the remoteRootPath, the manifestid and the file name to find an object on S3 and returns the bytes of that object.
 func (pm PluginManager) GetObject(datasource DataSource) ([]byte, error) {
 	for _, ws := range pm.stores {
-		if ws.HandlesDataSource(datasource) {
+		if ws.HandlesDataStoreType(datasource.StoreType) {
 			return ws.GetObject(datasource.Name)
 		}
 	}
@@ -57,12 +56,8 @@ func (pm PluginManager) GetObject(datasource DataSource) ([]byte, error) {
 
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
 func (pm PluginManager) GetPayload() (Payload, error) {
-	ds := DataSource{
-		StoreType: s3StoreType,
-	}
-
 	for _, ws := range pm.stores {
-		if ws.HandlesDataSource(ds) {
+		if ws.HandlesDataStoreType(S3) {
 			return ws.GetPayload()
 		}
 	}
@@ -73,7 +68,7 @@ func (pm PluginManager) GetPayload() (Payload, error) {
 // PullObject takes a filename input, searches for that file on S3 and copies it to the local directory if a file of that name is found in the remote store.
 func (pm PluginManager) PullObject(datasource DataSource) error {
 	for _, ws := range pm.stores {
-		if ws.HandlesDataSource(datasource) {
+		if ws.HandlesDataStoreType(datasource.StoreType) {
 			return ws.PullObject(datasource.Name)
 		}
 	}

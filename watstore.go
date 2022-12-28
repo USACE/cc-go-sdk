@@ -11,20 +11,44 @@ const (
 	watManifestId         = "WAT_MANIFEST_ID"
 
 	payloadFileName = "payload"
+)
 
-	s3StoreType  = "S3"
-	ebsStoreType = "EBS"
+type StoreType string
+
+const (
+	S3  StoreType = "S3"
+	EBS StoreType = "EBS"
+)
+
+type ObjectState int8
+
+const (
+	Memory    ObjectState = 0
+	LocalDisk ObjectState = 1
+	//RemoteDisk ObjectState = 2 //@TODO add remotedisk option for object state.
 )
 
 type WatStore interface {
-	PushObject(key string) error
-	PushObjectBytes(data []byte, datasource DataSource) error
+	PutObject(input PutObjectInput) error
 	PullObject(key string) error
 	GetObject(key string) ([]byte, error)
 	GetPayload() (Payload, error)
 	SetPayload(p Payload) error //@TODO migrate watcompute?
 	RootPath() string
-	HandlesDataSource(datasource DataSource) bool
+	HandlesDataStoreType(datasourcetype StoreType) bool
+}
+type PutObjectInput struct {
+	FileName             string
+	FileExtension        string
+	DestinationStoreType StoreType
+	ObjectState          ObjectState
+	Data                 []byte //optional - required if objectstate == Memory
+	SourcePath           string //optional - required if objectstate != memory
+	DestPath             string
+}
+type GetObjectInput struct {
+	SourceStoreType string
+	SourcePath      string
 }
 
 // @TODO jobid is really the manifest id

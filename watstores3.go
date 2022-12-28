@@ -18,6 +18,7 @@ type S3WatStore struct {
 	localRootPath  string
 	remoteRootPath string
 	manifestId     string
+	storeType      StoreType
 }
 
 // NewS3WatStore produces a WatStore backed by an S3 bucket based on environment variables.
@@ -36,12 +37,12 @@ func NewS3WatStore() (WatStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId}, nil
+	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId, S3}, nil
 }
 
 // HandlesDataSource determines if a datasource is handled by this store
-func (ws *S3WatStore) HandlesDataSource(datasource DataSource) bool {
-	return datasource.StoreType == s3StoreType
+func (ws *S3WatStore) HandlesDataStoreType(storeType StoreType) bool {
+	return ws.storeType == storeType
 }
 
 // RootPath provides access to the local root path where files are expected to live for operations like push and pull object.
@@ -49,24 +50,14 @@ func (ws *S3WatStore) RootPath() string {
 	return ws.localRootPath
 }
 
-// PushLocalObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
-func (ws *S3WatStore) PushObject(filename string) error {
-	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
-	localpath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
+// PutObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
+func (ws *S3WatStore) PutObject(poi PutObjectInput) error {
+	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s.%s", ws.remoteRootPath, ws.manifestId, poi.FileName, poi.FileExtension)}
+	localpath := fmt.Sprintf("%s/%s.%s", ws.localRootPath, poi.FileName, poi.FileExtension)
 	data, err := os.ReadFile(localpath)
 	if err != nil {
 		return err
 	}
-	foo, err := ws.fs.PutObject(s3path, data)
-	if err != nil {
-		log.Println(foo)
-	}
-	return err
-}
-
-// PushObjectBytes takes a slice of bytes as the input data, and a DataSource and pushes the object to the remotePathRoot concatenated with the manifestId and the DataSource Name
-func (ws *S3WatStore) PushObjectBytes(data []byte, datasource DataSource) error {
-	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, datasource.Name)}
 	foo, err := ws.fs.PutObject(s3path, data)
 	if err != nil {
 		log.Println(foo)
