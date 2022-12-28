@@ -39,12 +39,17 @@ func NewS3WatStore() (WatStore, error) {
 	return &S3WatStore{fs, localRootPath, remoteRootPath, manifestId}, nil
 }
 
+// HandlesDataSource determines if a datasource is handled by this store
+func (ws *S3WatStore) HandlesDataSource(datasource DataSource) bool {
+	return datasource.StoreType == s3StoreType
+}
+
 // RootPath provides access to the local root path where files are expected to live for operations like push and pull object.
 func (ws *S3WatStore) RootPath() string {
 	return ws.localRootPath
 }
 
-// PushObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
+// PushLocalObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
 func (ws *S3WatStore) PushObject(filename string) error {
 	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
 	localpath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)

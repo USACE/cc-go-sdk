@@ -24,6 +24,7 @@ type WatStore interface {
 	GetPayload() (Payload, error)
 	SetPayload(p Payload) error //@TODO migrate watcompute?
 	RootPath() string
+	HandlesDataSource(datasource DataSource) bool
 }
 
 // @TODO jobid is really the manifest id
