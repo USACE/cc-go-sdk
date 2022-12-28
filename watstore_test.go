@@ -1,7 +1,10 @@
 package wat
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/fs"
+	"io/ioutil"
 	"testing"
 
 	"github.com/google/uuid"
@@ -40,12 +43,7 @@ func TestWatGetObject(t *testing.T) {
 	}
 	fmt.Println(string(data))
 }
-
-func TestWatSetPayload(t *testing.T) {
-	store, err := NewS3WatStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+func payload() Payload {
 	payload := Payload{
 		map[string]interface{}{
 			"1": 1,
@@ -82,6 +80,14 @@ func TestWatSetPayload(t *testing.T) {
 			},
 		},
 	}
+	return payload
+}
+func TestWatSetPayload(t *testing.T) {
+	store, err := NewS3WatStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := payload()
 	err = store.SetPayload(payload)
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +117,14 @@ func TestWatSetPayload2(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
+func TestWritePayloadToJson(t *testing.T) {
+	p := payload()
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ioutil.WriteFile("payload.json", data, fs.ModeAppend)
+}
 func TestWatSetPayload3(t *testing.T) {
 	store, err := NewS3WatStore()
 	if err != nil {
