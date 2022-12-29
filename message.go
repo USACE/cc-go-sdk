@@ -6,45 +6,12 @@ import (
 	"time"
 )
 
-type Level uint8
-
-const (
-	DEBUG Level = iota
-	INFO
-	WARN
-	ERROR
-	FATAL
-	PANIC
-	DISABLED
-)
-
-func (l Level) String() string {
-	switch l {
-	case INFO:
-		return "some information"
-	case WARN:
-		return "a warning"
-	case ERROR:
-		return "an error"
-	case DEBUG:
-		return "a debug statement"
-	case FATAL:
-		return "a fatal message"
-	case PANIC:
-		return "a panic'ed state"
-	case DISABLED:
-		return ""
-	default:
-		return "unknown level"
-	}
-}
-
 type Logger struct {
-	Level //i believe this will be global to the container each container having its own possible level (and wat having its own level too.)
+	ErrorFilter ErrorLevel //i believe this will be global to the container each container having its own possible level (and wat having its own level too.)
 }
 
 var logger = Logger{
-	Level: INFO,
+	ErrorFilter: INFO,
 }
 
 type Status string
@@ -56,17 +23,13 @@ const (
 )
 
 type Message struct {
-	Status    Status `json:"status,omitempty"`
-	Progress  int8   `json:"progress,omitempty"`
-	Level     Level  `json:"level"`
 	Message   string `json:"message"`
 	Sender    string `json:"sender,omitempty"`
-	PayloadId string `json:"payload_id"`
 	timeStamp time.Time
 }
 
 // write is just a placeholder for however we intend to implement logging by the sdk
-func (l Logger) write(log Message) (n int, err error) {
+func (l Logger) writeError(log Error) (n int, err error) {
 	log.timeStamp = time.Now()
 
 	sender := ""
@@ -75,30 +38,40 @@ func (l Logger) write(log Message) (n int, err error) {
 	} else {
 		sender = log.Sender
 	}
-	if l.Level == DEBUG {
+	if l.ErrorFilter == DEBUG {
 		pc, file, line, _ := runtime.Caller(2)
 		funcName := runtime.FuncForPC(pc).Name()
-		fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.Level.String(), log.timeStamp, file, line, funcName, log.Message)
+		fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.ErrorLevel.String(), log.timeStamp, file, line, funcName, log.Error)
 	} else {
-		if log.Level >= ERROR {
+		if log.ErrorLevel >= ERROR {
 			pc, file, line, _ := runtime.Caller(2)
 			funcName := runtime.FuncForPC(pc).Name()
-			fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.Level.String(), log.timeStamp, file, line, funcName, log.Message)
+			fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.ErrorLevel.String(), log.timeStamp, file, line, funcName, log.Error)
 		}
-		fmt.Printf("%v issues %v at %v\n\t%v\n", sender, log.Level.String(), log.timeStamp, log.Message)
+		fmt.Printf("%v issues %v at %v\n\t%v\n", sender, log.ErrorLevel.String(), log.timeStamp, log.Error)
 	}
 	return 0, nil
 }
 
+func (l Logger) write(log Message) (n int, err error) {
+	log.timeStamp = time.Now()
+	fmt.Printf("%v:%v\n\t%v\n", log.Sender, log.timeStamp, log.Message)
+	return 0, nil
+}
+
 // SetLogLevel accepts a Level for messages.
-func SetLogLevel(logLevel Level) {
-	logger.Level = logLevel
+func SetErrorFilter(logLevel ErrorLevel) {
+	logger.ErrorFilter = logLevel
 }
 
 // Log accepts a message and manages the writing of messages that have levels that exceed or equal the instance level.
-func Log(message Message) {
-	if logger.Level <= message.Level {
+func LogMessage(message Message) {
+	//this could go to a redis cache, sqs, or just to log files for cloud watch to manage. The point is a single struct and a single endpoint to manage consistent logging across plugins.
+	logger.write(message)
+}
+func LogError(err Error) {
+	if logger.ErrorFilter <= err.ErrorLevel {
 		//this could go to a redis cache, sqs, or just to log files for cloud watch to manage. The point is a single struct and a single endpoint to manage consistent logging across plugins.
-		logger.write(message)
+		logger.writeError(err)
 	}
 }

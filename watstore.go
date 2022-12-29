@@ -1,15 +1,8 @@
 package wat
 
-var localRootPath string = "/data"
-var remoteRootPath string = "wat_store"
-
 const (
-	watAwsAccessKeyId     = "WAT_AWS_ACCESS_KEY_ID"
-	watAwsSecretAccessKey = "WAT_AWS_SECRET_ACCESS_KEY"
-	watAwsDefaultRegion   = "WAT_AWS_DEFAULT_REGION"
-	watAwsS3Bucket        = "WAT_AWS_S3_BUCKET"
-	watManifestId         = "WAT_MANIFEST_ID"
-
+	localRootPath   = "/data"
+	remoteRootPath  = "wat_store"
 	payloadFileName = "payload"
 )
 

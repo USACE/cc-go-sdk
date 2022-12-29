@@ -1,14 +1,37 @@
 package wat
 
-import "errors"
+import (
+	"errors"
+	"os"
+	"strconv"
+	"time"
+)
+
+const (
+	watManifestId  = "WAT_MANIFEST_ID"
+	watEventNumber = "WAT_EVENT_NUMBER"
+)
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
-	stores []WatStore
+	stores      []WatStore
+	eventNumber int
+	manifestId  string
 }
 
 func InitPluginManager() (PluginManager, error) {
 	var manager PluginManager
+	//get env variables
+	manager.manifestId = os.Getenv(watManifestId) //consider removing this from the s3watstore - passing a reference
+	en, err := strconv.Atoi(os.Getenv(watEventNumber))
+	if err != nil {
+		LogMessage(Message{
+			Message:   "no event number was found in the environment variables",
+			Sender:    "plugin manager",
+			timeStamp: time.Time{},
+		})
+	}
+	manager.eventNumber = en
 	manager.stores = make([]WatStore, 0)
 	s3Store, err := NewS3WatStore()
 	hasOneStore := false
@@ -22,6 +45,9 @@ func InitPluginManager() (PluginManager, error) {
 		return manager, nil
 	}
 	return manager, errors.New("no stores were added from the environment configurations")
+}
+func (pm PluginManager) EventNumber() int {
+	return pm.eventNumber
 }
 
 // PushLocalObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId

@@ -12,6 +12,13 @@ import (
 	"github.com/usace/filestore"
 )
 
+const (
+	watAwsAccessKeyId     = "WAT_AWS_ACCESS_KEY_ID"
+	watAwsSecretAccessKey = "WAT_AWS_SECRET_ACCESS_KEY"
+	watAwsDefaultRegion   = "WAT_AWS_DEFAULT_REGION"
+	watAwsS3Bucket        = "WAT_AWS_S3_BUCKET"
+)
+
 // S3WatStore implements the WatStore interface for AWS S3, it also stores a local root, a remote root (prefix), and a manifestId to reduce name collisions.
 type S3WatStore struct {
 	fs             filestore.FileStore
