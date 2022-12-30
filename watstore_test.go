@@ -35,7 +35,14 @@ func TestWatPullObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = store.PullObject("test.json")
+	poi := PullObjectInput{
+		SourceStoreType:     S3,
+		SourceRootPath:      "/wat_store",
+		DestinationRootPath: "/data",
+		FileName:            "test",
+		FileExtension:       ".json",
+	}
+	err = store.PullObject(poi)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +53,13 @@ func TestWatGetObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := store.GetObject("test.json")
+	goi := GetObjectInput{
+		SourceStoreType: S3,
+		SourceRootPath:  "/wat_store",
+		FileName:        "test",
+		FileExtension:   ".json",
+	}
+	data, err := store.GetObject(goi)
 	if err != nil {
 		t.Fatal(err)
 	}

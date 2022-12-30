@@ -2,7 +2,7 @@ package wat
 
 const (
 	localRootPath   = "/data"
-	remoteRootPath  = "wat_store"
+	remoteRootPath  = "/wat_store"
 	payloadFileName = "payload"
 )
 
@@ -23,8 +23,8 @@ const (
 
 type WatStore interface {
 	PutObject(input PutObjectInput) error
-	PullObject(key string) error
-	GetObject(key string) ([]byte, error)
+	PullObject(input PullObjectInput) error
+	GetObject(input GetObjectInput) ([]byte, error)
 	GetPayload() (Payload, error)
 	SetPayload(p Payload) error //@TODO migrate watcompute?
 	RootPath() string
@@ -36,12 +36,21 @@ type PutObjectInput struct {
 	DestinationStoreType StoreType
 	ObjectState          ObjectState
 	Data                 []byte //optional - required if objectstate == Memory
-	SourcePath           string //optional - required if objectstate != memory
+	SourcePath           string //optional - required if objectstate != Memory
 	DestPath             string
 }
 type GetObjectInput struct {
-	SourceStoreType string
-	SourcePath      string
+	SourceStoreType StoreType
+	SourceRootPath  string
+	FileName        string
+	FileExtension   string
+}
+type PullObjectInput struct {
+	SourceStoreType     StoreType
+	SourceRootPath      string
+	DestinationRootPath string
+	FileName            string
+	FileExtension       string
 }
 
 // @TODO jobid is really the manifest id

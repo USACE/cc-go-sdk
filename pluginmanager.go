@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	watManifestId  = "WAT_MANIFEST_ID"
-	watEventNumber = "WAT_EVENT_NUMBER"
-
-	//what about plugin name?
+	watManifestId       = "WAT_MANIFEST_ID"
+	watEventNumber      = "WAT_EVENT_NUMBER"
+	watEventID          = "WAT_EVENT_ID"
+	watPluginDefinition = "WAT_PLUGIN_DEFINITION"
 )
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
@@ -23,8 +23,10 @@ type PluginManager struct {
 
 func InitPluginManager() (PluginManager, error) {
 	var manager PluginManager
+	sender := os.Getenv(watPluginDefinition)
 	manager.logger = Logger{
 		ErrorFilter: INFO,
+		Sender:      sender,
 	}
 	//get env variables
 	manager.manifestId = os.Getenv(watManifestId) //consider removing this from the s3watstore - passing a reference
@@ -33,7 +35,6 @@ func InitPluginManager() (PluginManager, error) {
 		manager.logger.LogError(Error{
 			ErrorLevel: INFO,
 			Error:      "no event number was found in the environment variables",
-			Sender:     "plugin manager",
 		})
 	}
 	manager.eventNumber = en
@@ -78,7 +79,13 @@ func (pm PluginManager) PutObject(datasource DataSource) error {
 func (pm PluginManager) GetObject(datasource DataSource) ([]byte, error) {
 	for _, ws := range pm.stores {
 		if ws.HandlesDataStoreType(datasource.StoreType) {
-			return ws.GetObject(datasource.Name)
+			goi := GetObjectInput{
+				SourceStoreType: datasource.StoreType,
+				SourceRootPath:  datasource.EnvPrefix, //what is an env prefix really
+				FileName:        datasource.Name,      //what is a name
+				FileExtension:   datasource.Paths[0],  //@TODO how are we really handling multiple paths
+			}
+			return ws.GetObject(goi)
 		}
 	}
 	bytes := make([]byte, 0)
@@ -100,7 +107,14 @@ func (pm PluginManager) GetPayload() (Payload, error) {
 func (pm PluginManager) PullObject(datasource DataSource) error {
 	for _, ws := range pm.stores {
 		if ws.HandlesDataStoreType(datasource.StoreType) {
-			return ws.PullObject(datasource.Name)
+			poi := PullObjectInput{
+				SourceStoreType:     datasource.StoreType,
+				SourceRootPath:      datasource.EnvPrefix, //what is an env prefix really
+				FileName:            datasource.Name,      //what is a name
+				FileExtension:       datasource.Paths[0],  //@TODO how are we really handling multiple paths
+				DestinationRootPath: "/data",              //i think this should be a configured env variable.
+			}
+			return ws.PullObject(poi)
 		}
 	}
 	return errors.New("no store handles this datasource")

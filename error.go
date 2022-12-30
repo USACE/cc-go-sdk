@@ -36,5 +36,4 @@ func (l ErrorLevel) String() string {
 type Error struct {
 	ErrorLevel ErrorLevel `json:"errorlevel"`
 	Error      string     `json:"error"`
-	Sender     string     `json:"sender,omitempty"`
 }
