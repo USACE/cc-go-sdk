@@ -32,7 +32,7 @@ type S3WatStore struct {
 // @TODO: Switch to aws golang v2 s3 api and use profile for connection?????
 // @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
 func NewS3WatStore() (WatStore, error) {
-	manifestId := os.Getenv(watManifestId)
+	manifestId := os.Getenv(WatManifestId)
 	config := filestore.S3FSConfig{
 		S3Id:     os.Getenv(watAwsAccessKeyId),
 		S3Key:    os.Getenv(watAwsSecretAccessKey),

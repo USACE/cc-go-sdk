@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	watManifestId       = "WAT_MANIFEST_ID"
-	watEventNumber      = "WAT_EVENT_NUMBER"
-	watEventID          = "WAT_EVENT_ID"
-	watPluginDefinition = "WAT_PLUGIN_DEFINITION"
+	WatManifestId       = "WAT_MANIFEST_ID"
+	WatEventNumber      = "WAT_EVENT_NUMBER"
+	WatEventID          = "WAT_EVENT_ID"
+	WatPluginDefinition = "WAT_PLUGIN_DEFINITION"
 )
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
@@ -23,14 +23,14 @@ type PluginManager struct {
 
 func InitPluginManager() (PluginManager, error) {
 	var manager PluginManager
-	sender := os.Getenv(watPluginDefinition)
+	sender := os.Getenv(WatPluginDefinition)
 	manager.logger = Logger{
 		ErrorFilter: INFO,
 		Sender:      sender,
 	}
 	//get env variables
-	manager.manifestId = os.Getenv(watManifestId) //consider removing this from the s3watstore - passing a reference
-	en, err := strconv.Atoi(os.Getenv(watEventNumber))
+	manager.manifestId = os.Getenv(WatManifestId) //consider removing this from the s3watstore - passing a reference
+	en, err := strconv.Atoi(os.Getenv(WatEventNumber))
 	if err != nil {
 		manager.logger.LogError(Error{
 			ErrorLevel: INFO,
