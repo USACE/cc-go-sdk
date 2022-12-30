@@ -15,7 +15,16 @@ func TestWatPushObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = store.PushObject("test.json")
+	poi := PutObjectInput{
+		FileName:             "test",
+		FileExtension:        "json",
+		DestinationStoreType: S3,
+		ObjectState:          LocalDisk,
+		Data:                 []byte{},
+		SourcePath:           "/data",
+		DestPath:             "/wat_store",
+	}
+	err = store.PutObject(poi)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +66,7 @@ func payload() Payload {
 			{
 				Name: "Input1",
 				//DataType:  fileDataType,
-				StoreType: s3StoreType,
+				StoreType: S3,
 				EnvPrefix: "MMC_TIMING",
 				Paths:     []string{"mmc_timing_test"},
 				Parameters: map[string]string{
@@ -70,7 +79,7 @@ func payload() Payload {
 			{
 				Name: "Output1",
 				//DataType:  fileDataType,
-				StoreType: s3StoreType,
+				StoreType: S3,
 				EnvPrefix: "MMC_TIMING",
 				Paths:     []string{"mmc_timing_test"},
 				Parameters: map[string]string{
@@ -140,26 +149,26 @@ func TestWatSetPayload3(t *testing.T) {
 		[]DataSource{
 			{
 				Name:      "BreachPlan",
-				StoreType: s3StoreType,
+				StoreType: S3,
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/BirchLakeDam.p10.hdf"},
 			},
 			{
 				Name:      "BreachPlan",
-				StoreType: s3StoreType,
+				StoreType: S3,
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/BirchLakeDam.p09.hdf"},
 			},
 		},
 		[]DataSource{
 			{
 				Name:      "log",
-				StoreType: s3StoreType,
+				StoreType: S3,
 				EnvPrefix: "MMC",
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/Timing/BirchLakeDam_%s.log"},
 			},
 			{
 				Name:      "timing",
 				ID:        &sampleId,
-				StoreType: s3StoreType,
+				StoreType: S3,
 				EnvPrefix: "MMC",
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/Timing/BirchLakeDam_%s.gpkg"},
 			},
