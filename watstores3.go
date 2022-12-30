@@ -73,8 +73,8 @@ func (ws *S3WatStore) PutObject(poi PutObjectInput) error {
 }
 
 // GetObject takes a file name as input and builds a key based on the remoteRootPath, the manifestid and the file name to find an object on S3 and returns the bytes of that object.
-func (ws *S3WatStore) GetObject(filename string) ([]byte, error) {
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
+func (ws *S3WatStore) GetObject(input GetObjectInput) ([]byte, error) {
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s.%s", input.SourceRootPath, ws.manifestId, input.FileName, input.FileExtension)}
 	reader, err := ws.fs.GetObject(path)
 	if err != nil {
 		return nil, err
@@ -115,9 +115,9 @@ func (ws *S3WatStore) SetPayload(p Payload) error {
 }
 
 // PullObject takes a filename input, searches for that file on S3 and copies it to the local directory if a file of that name is found in the remote store.
-func (ws *S3WatStore) PullObject(filename string) error {
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, filename)}
-	localPath := fmt.Sprintf("%s/%s", ws.localRootPath, filename)
+func (ws *S3WatStore) PullObject(input PullObjectInput) error {
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s.%s", input.SourceRootPath, ws.manifestId, input.FileName, input.FileExtension)}
+	localPath := fmt.Sprintf("%s/%s.%s", input.DestinationRootPath, input.FileName, input.FileExtension)
 	//open destination
 	f, err := os.Create(localPath)
 	if err != nil {

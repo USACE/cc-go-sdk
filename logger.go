@@ -8,42 +8,37 @@ import (
 
 type Logger struct {
 	ErrorFilter ErrorLevel //i believe this will be global to the container each container having its own possible level (and wat having its own level too.)
+	Sender      string
 }
 
 // write is just a placeholder for however we intend to implement logging by the sdk
 func (l Logger) writeError(log Error) error {
-	sender := ""
-	if log.Sender == "" {
-		sender = "Unknown Sender"
-	} else {
-		sender = log.Sender
-	}
 	if l.ErrorFilter == DEBUG {
 		pc, file, line, _ := runtime.Caller(2)
 		funcName := runtime.FuncForPC(pc).Name()
-		fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
+		fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
 	} else {
 		if log.ErrorLevel >= ERROR {
 			pc, file, line, _ := runtime.Caller(2)
 			funcName := runtime.FuncForPC(pc).Name()
-			fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
+			fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
 		}
-		fmt.Printf("%v issues %v at %v\n\t%v\n", sender, log.ErrorLevel.String(), time.Now(), log.Error)
+		fmt.Printf("%v issues %v at %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), log.Error)
 	}
 	return nil
 }
 
 func (l Logger) write(log Message) error {
-	fmt.Printf("%v:%v\n\t%v\n", log.Sender, time.Now(), log.Message)
+	fmt.Printf("%v:%v\n\t%v\n", l.Sender, time.Now(), log.Message)
 	return nil
 }
 func (l Logger) reportStatus(status StatusReport) error {
-	fmt.Printf("%v:%v:%v\n\t%v percent complete\n", "sender", status.Status, time.Now(), status.Progress) //can we make sender an environment variable?
+	fmt.Printf("%v:%v:%v\n\t%v percent complete\n", l.Sender, status.Status, time.Now(), status.Progress) //can we make sender an environment variable?
 	return nil
 }
 
 // SetLogLevel accepts a Level for messages.
-func (l Logger) SetErrorFilter(logLevel ErrorLevel) {
+func (l *Logger) SetErrorFilter(logLevel ErrorLevel) {
 	l.ErrorFilter = logLevel
 }
 
