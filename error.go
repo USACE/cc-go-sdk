@@ -1,7 +1,5 @@
 package wat
 
-import "time"
-
 type ErrorLevel uint8
 
 const (
@@ -39,5 +37,4 @@ type Error struct {
 	ErrorLevel ErrorLevel `json:"errorlevel"`
 	Error      string     `json:"error"`
 	Sender     string     `json:"sender,omitempty"`
-	timeStamp  time.Time
 }

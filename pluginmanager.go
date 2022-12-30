@@ -4,12 +4,13 @@ import (
 	"errors"
 	"os"
 	"strconv"
-	"time"
 )
 
 const (
 	watManifestId  = "WAT_MANIFEST_ID"
 	watEventNumber = "WAT_EVENT_NUMBER"
+
+	//what about plugin name?
 )
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
@@ -17,18 +18,22 @@ type PluginManager struct {
 	stores      []WatStore
 	eventNumber int
 	manifestId  string
+	logger      Logger
 }
 
 func InitPluginManager() (PluginManager, error) {
 	var manager PluginManager
+	manager.logger = Logger{
+		ErrorFilter: INFO,
+	}
 	//get env variables
 	manager.manifestId = os.Getenv(watManifestId) //consider removing this from the s3watstore - passing a reference
 	en, err := strconv.Atoi(os.Getenv(watEventNumber))
 	if err != nil {
-		LogMessage(Message{
-			Message:   "no event number was found in the environment variables",
-			Sender:    "plugin manager",
-			timeStamp: time.Time{},
+		manager.logger.LogError(Error{
+			ErrorLevel: INFO,
+			Error:      "no event number was found in the environment variables",
+			Sender:     "plugin manager",
 		})
 	}
 	manager.eventNumber = en
@@ -99,4 +104,13 @@ func (pm PluginManager) PullObject(datasource DataSource) error {
 		}
 	}
 	return errors.New("no store handles this datasource")
+}
+func (pm PluginManager) ReportProgress(status StatusReport) {
+	pm.logger.ReportProgress(status)
+}
+func (pm PluginManager) LogMessage(message Message) {
+	pm.logger.LogMessage(message)
+}
+func (pm PluginManager) LogError(err Error) {
+	pm.logger.LogError(err)
 }
