@@ -3,6 +3,7 @@ package wat
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -60,10 +61,20 @@ func (ws *S3WatStore) RootPath() string {
 // PutObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
 func (ws *S3WatStore) PutObject(poi PutObjectInput) error {
 	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s.%s", ws.remoteRootPath, ws.manifestId, poi.FileName, poi.FileExtension)}
-	localpath := fmt.Sprintf("%s/%s.%s", ws.localRootPath, poi.FileName, poi.FileExtension)
-	data, err := os.ReadFile(localpath)
-	if err != nil {
-		return err
+	var data []byte
+	if poi.ObjectState == LocalDisk {
+
+		localpath := fmt.Sprintf("%s/%s.%s", ws.localRootPath, poi.FileName, poi.FileExtension)
+		contents, err := os.ReadFile(localpath)
+		if err != nil {
+			return err
+		}
+		data = contents
+	} else if poi.ObjectState == Memory {
+		data = poi.Data
+	} else {
+		//handle remote to remote??
+		return errors.New("not currently supporting remote to remote data transfers - use getobject to retrieve bytes and push as memory object via put object")
 	}
 	foo, err := ws.fs.PutObject(s3path, data)
 	if err != nil {

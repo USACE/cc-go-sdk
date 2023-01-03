@@ -56,8 +56,27 @@ func (pm PluginManager) EventNumber() int {
 	return pm.eventNumber
 }
 
-// PushLocalObject takes a file by name from the localRootPath (see RootPath) and pushes it into S3 to the remoteRootPath concatenated with the manifestId
-func (pm PluginManager) PutObject(datasource DataSource) error {
+// PutObject takes a datasource and data and pushes it into S3 based on the instructions in the datasource
+func (pm PluginManager) PutObject(datasource DataSource, data []byte) error {
+	for _, ws := range pm.stores {
+		if ws.HandlesDataStoreType(datasource.StoreType) {
+			poi := PutObjectInput{
+				FileName:             datasource.Name,
+				FileExtension:        "unknown", //how do i reconcile multiple paths in a datasource?
+				DestinationStoreType: datasource.StoreType,
+				ObjectState:          Memory,
+				Data:                 data,
+				SourcePath:           datasource.Paths[0], //how do i know if it is a local path or not
+				DestPath:             datasource.Paths[0],
+			}
+			return ws.PutObject(poi)
+		}
+	}
+	return errors.New("no store handles this datasource")
+}
+
+// PutObject takes a datasource and data and pushes it into S3 based on the instructions in the datasource
+func (pm PluginManager) PutLocalObject(datasource DataSource) error {
 	for _, ws := range pm.stores {
 		if ws.HandlesDataStoreType(datasource.StoreType) {
 			poi := PutObjectInput{
@@ -65,7 +84,6 @@ func (pm PluginManager) PutObject(datasource DataSource) error {
 				FileExtension:        "unknown", //how do i reconcile multiple paths in a datasource?
 				DestinationStoreType: datasource.StoreType,
 				ObjectState:          LocalDisk,
-				Data:                 []byte{},
 				SourcePath:           datasource.Paths[0], //how do i know if it is a local path or not
 				DestPath:             datasource.Paths[0],
 			}
