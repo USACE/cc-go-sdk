@@ -2,8 +2,9 @@ package wat
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"os"
-	"strconv"
 )
 
 const (
@@ -15,128 +16,138 @@ const (
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
-	stores      []WatStore
-	eventNumber int
-	manifestId  string
-	logger      Logger
+	ws         WatStore
+	manifestId string
+	logger     Logger
+	payload    Payload
+	stores     map[string]interface{}
 }
 
-func InitPluginManager() (PluginManager, error) {
+func InitPluginManager() (*PluginManager, error) {
 	var manager PluginManager
+	manager.stores = make(map[string]interface{})
 	sender := os.Getenv(WatPluginDefinition)
 	manager.logger = Logger{
 		ErrorFilter: INFO,
 		Sender:      sender,
 	}
-	//get env variables
 	manager.manifestId = os.Getenv(WatManifestId) //consider removing this from the s3watstore - passing a reference
-	en, err := strconv.Atoi(os.Getenv(WatEventNumber))
+	s3Store, err := NewWatStore()
 	if err != nil {
 		manager.logger.LogError(Error{
 			ErrorLevel: INFO,
-			Error:      "no event number was found in the environment variables",
+			Error:      "Unable to load the primary Compute-Store",
 		})
+		return nil, err
 	}
-	manager.eventNumber = en
-	manager.stores = make([]WatStore, 0)
-	s3Store, err := NewS3WatStore()
-	hasOneStore := false
-	if err == nil {
-		hasOneStore = true
-		manager.stores = append(manager.stores, s3Store)
-	}
-	//make other watstores and add them to the manager.
-
-	if hasOneStore {
-		return manager, nil
-	}
-	return manager, errors.New("no stores were added from the environment configurations")
-}
-func (pm PluginManager) EventNumber() int {
-	return pm.eventNumber
-}
-
-// PutObject takes a datasource and data and pushes it into S3 based on the instructions in the datasource
-func (pm PluginManager) PutObject(datasource DataSource, data []byte) error {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataStoreType(datasource.StoreType) {
-			poi := PutObjectInput{
-				FileName:             datasource.Name,
-				FileExtension:        "unknown", //how do i reconcile multiple paths in a datasource?
-				DestinationStoreType: datasource.StoreType,
-				ObjectState:          Memory,
-				Data:                 data,
-				SourcePath:           datasource.Paths[0], //how do i know if it is a local path or not
-				DestPath:             datasource.Paths[0],
+	manager.ws = s3Store
+	manager.payload, err = s3Store.GetPayload()
+	if err != nil {
+		manager.logger.LogError(Error{
+			ErrorLevel: INFO,
+			Error:      "Warning: Unable to load a payload!",
+		})
+	} else {
+		for _, ds := range manager.payload.Stores {
+			switch ds.StoreType {
+			case S3:
+				s3store, err := NewS3DataStore(ds)
+				if err != nil {
+					manager.logger.LogError(Error{
+						ErrorLevel: WARN,
+						Error:      "Warning: Unable to load a payload!",
+					})
+					return nil, err
+				}
+				manager.stores[ds.Name] = s3store
+			default:
+				errMsg := fmt.Sprintf("%s is an invalid Store Type", ds.StoreType)
+				manager.logger.LogError(Error{
+					ErrorLevel: ERROR,
+					Error:      errMsg,
+				})
+				return nil, errors.New(errMsg)
 			}
-			return ws.PutObject(poi)
 		}
 	}
-	return errors.New("no store handles this datasource")
+	return &manager, nil
 }
 
-// PutObject takes a datasource and data and pushes it into S3 based on the instructions in the datasource
-func (pm PluginManager) PutLocalObject(datasource DataSource) error {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataStoreType(datasource.StoreType) {
-			poi := PutObjectInput{
-				FileName:             datasource.Name,
-				FileExtension:        "unknown", //how do i reconcile multiple paths in a datasource?
-				DestinationStoreType: datasource.StoreType,
-				ObjectState:          LocalDisk,
-				SourcePath:           datasource.Paths[0], //how do i know if it is a local path or not
-				DestPath:             datasource.Paths[0],
-			}
-			return ws.PutObject(poi)
-		}
-	}
-	return errors.New("no store handles this datasource")
-}
-
-// GetObject takes a file name as input and builds a key based on the remoteRootPath, the manifestid and the file name to find an object on S3 and returns the bytes of that object.
-func (pm PluginManager) GetObject(datasource DataSource) ([]byte, error) {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataStoreType(datasource.StoreType) {
-			goi := GetObjectInput{
-				SourceStoreType: datasource.StoreType,
-				SourceRootPath:  datasource.EnvPrefix, //what is an env prefix really
-				FileName:        datasource.Name,      //what is a name
-				FileExtension:   datasource.Paths[0],  //@TODO how are we really handling multiple paths
-			}
-			return ws.GetObject(goi)
-		}
-	}
-	bytes := make([]byte, 0)
-	return bytes, errors.New("no store handles this datasource")
-}
+//@TODO add Shutdown method!!!
 
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
-func (pm PluginManager) GetPayload() (Payload, error) {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataStoreType(S3) {
-			return ws.GetPayload()
-		}
-	}
-	var payload Payload
-	return payload, errors.New("no s3Store in stores")
+func (pm PluginManager) GetPayload() Payload {
+	return pm.payload
 }
 
-// PullObject takes a filename input, searches for that file on S3 and copies it to the local directory if a file of that name is found in the remote store.
-func (pm PluginManager) PullObject(datasource DataSource) error {
-	for _, ws := range pm.stores {
-		if ws.HandlesDataStoreType(datasource.StoreType) {
-			poi := PullObjectInput{
-				SourceStoreType:     datasource.StoreType,
-				SourceRootPath:      datasource.EnvPrefix, //what is an env prefix really
-				FileName:            datasource.Name,      //what is a name
-				FileExtension:       datasource.Paths[0],  //@TODO how are we really handling multiple paths
-				DestinationRootPath: "/data",              //i think this should be a configured env variable.
-			}
-			return ws.PullObject(poi)
-		}
-	}
-	return errors.New("no store handles this datasource")
+func (pm PluginManager) GetInputDataSource(name string) (DataSource, error) {
+	return findDs(name, pm.payload.Inputs)
 }
+
+func (pm PluginManager) GetOutputDataSource(name string) (DataSource, error) {
+	return findDs(name, pm.payload.Outputs)
+}
+
+func (pm PluginManager) GetInputDataSources() []DataSource {
+	return pm.payload.Inputs
+}
+
+func (pm PluginManager) GetOutputDataSources() []DataSource {
+	return pm.payload.Outputs
+}
+
+func (pm PluginManager) GetFileStore(name string) (FileDataStore, error) {
+	return GetStore[FileDataStore](&pm, name)
+}
+func (pm PluginManager) GetStore(name string) (interface{}, error) {
+	if store, ok := pm.stores[name]; ok {
+		return store, nil
+	}
+	return nil, errors.New(fmt.Sprintf("Store %s does not exist.\n", name))
+}
+
+func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destPath int) error {
+	store, err := GetStore[FileDataStore](&pm, destDs.StoreName)
+	if err != nil {
+		return err
+	}
+	return store.Put(srcReader, destDs.Paths[0])
+}
+
+func (pm PluginManager) FileReader(ds DataSource, path int) (io.ReadCloser, error) {
+	store, err := GetStore[FileDataStore](&pm, ds.StoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	reader, err := store.Get(ds.Paths[path])
+
+	return reader, err
+}
+
+func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.ReadCloser, error) {
+	ds, err := findDs(dataSourceName, pm.payload.Inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := GetStore[FileDataStore](&pm, ds.StoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	reader, err := store.Get(ds.Paths[path])
+
+	return reader, err
+}
+
+func (pm PluginManager) EventNumber() int {
+	if event, ok := pm.payload.Attributes[WatEventNumber]; ok {
+		return event.(int)
+	}
+	return -1
+}
+
 func (pm PluginManager) ReportProgress(status StatusReport) {
 	pm.logger.ReportProgress(status)
 }
@@ -145,4 +156,21 @@ func (pm PluginManager) LogMessage(message Message) {
 }
 func (pm PluginManager) LogError(err Error) {
 	pm.logger.LogError(err)
+}
+
+func GetStore[T any](pm *PluginManager, name string) (T, error) {
+	var store T
+	if s, ok := pm.stores[name]; ok {
+		return s.(T), nil
+	}
+	return store, errors.New(fmt.Sprintf("Unable to get store %s", name))
+}
+
+func findDs(name string, sources []DataSource) (DataSource, error) {
+	for _, ds := range sources {
+		if ds.Name == name {
+			return ds, nil
+		}
+	}
+	return DataSource{}, errors.New(fmt.Sprintf("Invalid DataSource Name: %s\n", name))
 }

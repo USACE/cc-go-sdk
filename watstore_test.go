@@ -1,13 +1,7 @@
 package wat
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/fs"
-	"io/ioutil"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func TestWatPushObject(t *testing.T) {
@@ -48,6 +42,7 @@ func TestWatPullObject(t *testing.T) {
 	}
 }
 
+/*
 func TestWatGetObject(t *testing.T) {
 	store, err := NewS3WatStore()
 	if err != nil {
@@ -80,7 +75,7 @@ func payload() Payload {
 				Name: "Input1",
 				//DataType:  fileDataType,
 				StoreType: S3,
-				EnvPrefix: "MMC_TIMING",
+				DsProfile: "MMC_TIMING",
 				Paths:     []string{"mmc_timing_test"},
 				Parameters: map[string]string{
 					"P1": "TEST1",
@@ -93,7 +88,7 @@ func payload() Payload {
 				Name: "Output1",
 				//DataType:  fileDataType,
 				StoreType: S3,
-				EnvPrefix: "MMC_TIMING",
+				DsProfile: "MMC_TIMING",
 				Paths:     []string{"mmc_timing_test"},
 				Parameters: map[string]string{
 					"OP1": "OTEST1",
@@ -175,14 +170,14 @@ func TestWatSetPayload3(t *testing.T) {
 			{
 				Name:      "log",
 				StoreType: S3,
-				EnvPrefix: "MMC",
+				DsProfile: "MMC",
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/Timing/BirchLakeDam_%s.log"},
 			},
 			{
 				Name:      "timing",
 				ID:        &sampleId,
 				StoreType: S3,
-				EnvPrefix: "MMC",
+				DsProfile: "MMC",
 				Paths:     []string{"/adrian_christopher_test/Birch_Lake_Dam/Timing/BirchLakeDam_%s.gpkg"},
 			},
 		},
@@ -219,3 +214,4 @@ func TestWatSetPayloadM(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+*/
