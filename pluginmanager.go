@@ -20,12 +20,11 @@ type PluginManager struct {
 	manifestId string
 	logger     Logger
 	payload    Payload
-	stores     map[string]interface{}
 }
 
 func InitPluginManager() (*PluginManager, error) {
 	var manager PluginManager
-	manager.stores = make(map[string]interface{})
+	//manager.stores = make(map[string]interface{})
 	sender := os.Getenv(WatPluginDefinition)
 	manager.logger = Logger{
 		ErrorFilter: INFO,
@@ -48,7 +47,7 @@ func InitPluginManager() (*PluginManager, error) {
 			Error:      "Warning: Unable to load a payload!",
 		})
 	} else {
-		for _, ds := range manager.payload.Stores {
+		for i, ds := range manager.payload.Stores {
 			switch ds.StoreType {
 			case S3:
 				s3store, err := NewS3DataStore(ds)
@@ -59,7 +58,9 @@ func InitPluginManager() (*PluginManager, error) {
 					})
 					return nil, err
 				}
-				manager.stores[ds.Name] = s3store
+				manager.payload.Stores[i].Session = s3store
+			case WS, RDBMS:
+				manager.logger.LogMessage(Message{"WS and RDBMS session intantiation is the responsibility of the plugin."})
 			default:
 				errMsg := fmt.Sprintf("%s is an invalid Store Type", ds.StoreType)
 				manager.logger.LogError(Error{
@@ -72,8 +73,6 @@ func InitPluginManager() (*PluginManager, error) {
 	}
 	return &manager, nil
 }
-
-//@TODO add Shutdown method!!!
 
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
 func (pm PluginManager) GetPayload() Payload {
@@ -97,17 +96,15 @@ func (pm PluginManager) GetOutputDataSources() []DataSource {
 }
 
 func (pm PluginManager) GetFileStore(name string) (FileDataStore, error) {
-	return GetStore[FileDataStore](&pm, name)
+	return getSession[FileDataStore](&pm, name)
 }
-func (pm PluginManager) GetStore(name string) (interface{}, error) {
-	if store, ok := pm.stores[name]; ok {
-		return store, nil
-	}
-	return nil, errors.New(fmt.Sprintf("Store %s does not exist.\n", name))
+
+func (pm PluginManager) GetStore(name string) (*DataStore, error) {
+	return getStore(&pm, name)
 }
 
 func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destPath int) error {
-	store, err := GetStore[FileDataStore](&pm, destDs.StoreName)
+	store, err := getSession[FileDataStore](&pm, destDs.StoreName)
 	if err != nil {
 		return err
 	}
@@ -115,7 +112,7 @@ func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destP
 }
 
 func (pm PluginManager) FileReader(ds DataSource, path int) (io.ReadCloser, error) {
-	store, err := GetStore[FileDataStore](&pm, ds.StoreName)
+	store, err := getSession[FileDataStore](&pm, ds.StoreName)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +128,7 @@ func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.Re
 		return nil, err
 	}
 
-	store, err := GetStore[FileDataStore](&pm, ds.StoreName)
+	store, err := getSession[FileDataStore](&pm, ds.StoreName)
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +155,23 @@ func (pm PluginManager) LogError(err Error) {
 	pm.logger.LogError(err)
 }
 
-func GetStore[T any](pm *PluginManager, name string) (T, error) {
-	var store T
-	if s, ok := pm.stores[name]; ok {
-		return s.(T), nil
+func getStore(pm *PluginManager, name string) (*DataStore, error) {
+	for _, s := range pm.payload.Stores {
+		if s.Name == name {
+			return &s, nil
+		}
 	}
-	return store, errors.New(fmt.Sprintf("Unable to get store %s", name))
+	return nil, errors.New(fmt.Sprintf("Store %s does not exist.\n", name))
+}
+
+func getSession[T any](pm *PluginManager, name string) (T, error) {
+	for _, s := range pm.payload.Stores {
+		if s.Name == name {
+			return s.Session.(T), nil
+		}
+	}
+	var store T
+	return store, errors.New(fmt.Sprintf("Session %s does not exist.\n", name))
 }
 
 func findDs(name string, sources []DataSource) (DataSource, error) {

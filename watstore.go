@@ -9,8 +9,10 @@ const (
 type StoreType string
 
 const (
-	S3  StoreType = "S3"
-	EBS StoreType = "EBS"
+	S3    StoreType = "S3"
+	WS    StoreType = "WS"
+	RDBMS StoreType = "RDBMS"
+	EBS   StoreType = "EBS"
 )
 
 type ObjectState int8

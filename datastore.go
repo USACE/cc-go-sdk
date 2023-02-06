@@ -22,12 +22,13 @@ type DataSource struct {
 }
 */
 
-type DataStoreDef struct {
+type DataStore struct {
 	Name       string
 	ID         *uuid.UUID
 	StoreType  StoreType
 	DsProfile  string
 	Parameters map[string]string
+	Session    interface{}
 }
 
 type DataSource struct {

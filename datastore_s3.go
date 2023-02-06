@@ -42,7 +42,7 @@ func (s3ds *S3DataStore) Session() filestore.FileStore {
 	return s3ds.fs
 }
 
-func NewS3DataStore(ds DataStoreDef) (FileDataStore, error) {
+func NewS3DataStore(ds DataStore) (FileDataStore, error) {
 	config := filestore.S3FSConfig{
 		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsAccessKeyId)),
 		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsSecretAccessKey)),
