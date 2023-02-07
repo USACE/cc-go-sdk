@@ -1,6 +1,6 @@
 package plugin
 
-// EventConfiguration is a simple structure to support consistency in wat plugins regarding the usage of seeds for natural variability and knowledge uncertainty and realization numbers for indexing
+// EventConfiguration is a simple structure to support consistency in cc plugins regarding the usage of seeds for natural variability and knowledge uncertainty and realization numbers for indexing
 type EventConfiguration struct {
 	RealizationNumber int                `json:"realization_number"`
 	Seeds             map[string]SeedSet `json:"seeds"` //pluginName-modelname as the general key convention?

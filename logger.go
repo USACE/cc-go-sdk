@@ -1,4 +1,4 @@
-package wat
+package cc
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 type Logger struct {
-	ErrorFilter ErrorLevel //i believe this will be global to the container each container having its own possible level (and wat having its own level too.)
+	ErrorFilter ErrorLevel //i believe this will be global to the container each container having its own possible level (and compute having its own level too.)
 	Sender      string
 }
 

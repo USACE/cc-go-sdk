@@ -1,4 +1,4 @@
-package wat
+package cc
 
 import (
 	"errors"
@@ -44,10 +44,10 @@ func (s3ds *S3DataStore) Session() filestore.FileStore {
 
 func NewS3DataStore(ds DataStore) (FileDataStore, error) {
 	config := filestore.S3FSConfig{
-		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsAccessKeyId)),
-		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsSecretAccessKey)),
-		S3Region: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsDefaultRegion)),
-		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, awsS3Bucket)),
+		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsAccessKeyId)),
+		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsSecretAccessKey)),
+		S3Region: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsDefaultRegion)),
+		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Bucket)),
 	}
 
 	fs, err := filestore.NewFileStore(config)

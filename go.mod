@@ -1,4 +1,4 @@
-module github.com/usace/wat-go
+module github.com/usace/cc-go
 
 go 1.18
 

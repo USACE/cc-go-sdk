@@ -1,4 +1,4 @@
-package wat
+package cc
 
 import (
 	"bytes"
@@ -9,15 +9,21 @@ import (
 )
 
 const (
-	WatManifestId       = "WAT_MANIFEST_ID"
-	WatEventNumber      = "WAT_EVENT_NUMBER"
-	WatEventID          = "WAT_EVENT_ID"
-	WatPluginDefinition = "WAT_PLUGIN_DEFINITION"
+	CcManifestId       = "CC_MANIFEST_ID"
+	CcEventNumber      = "CC_EVENT_NUMBER"
+	CcEventID          = "CC_EVENT_ID"
+	CcPluginDefinition = "CC_PLUGIN_DEFINITION"
+	CcProfile          = "CC"
+	CcPayloadFormatted = "CC_PAYLOAD_FORMATTED"
+	AwsAccessKeyId     = "AWS_ACCESS_KEY_ID"
+	AwsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
+	AwsDefaultRegion   = "AWS_DEFAULT_REGION"
+	AwsS3Bucket        = "AWS_S3_BUCKET"
 )
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
-	ws         WatStore
+	ws         CcStore
 	manifestId string
 	logger     Logger
 	payload    Payload
@@ -26,13 +32,13 @@ type PluginManager struct {
 func InitPluginManager() (*PluginManager, error) {
 	var manager PluginManager
 	//manager.stores = make(map[string]interface{})
-	sender := os.Getenv(WatPluginDefinition)
+	sender := os.Getenv(CcPluginDefinition) //@TODO what is this used for?
 	manager.logger = Logger{
 		ErrorFilter: INFO,
 		Sender:      sender,
 	}
-	manager.manifestId = os.Getenv(WatManifestId) //consider removing this from the s3watstore - passing a reference
-	s3Store, err := NewWatStore()
+	manager.manifestId = os.Getenv(CcManifestId) //consider removing this from the s3store - passing a reference
+	s3Store, err := NewCcStore()
 	if err != nil {
 		manager.logger.LogError(Error{
 			ErrorLevel: INFO,
@@ -160,7 +166,7 @@ func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.Re
 }
 
 func (pm PluginManager) EventNumber() int {
-	if event, ok := pm.payload.Attributes[WatEventNumber]; ok {
+	if event, ok := pm.payload.Attributes[CcEventNumber]; ok {
 		return event.(int)
 	}
 	return -1
