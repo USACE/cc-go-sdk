@@ -1,4 +1,4 @@
-module github.com/usace/cc-go
+module github.com/usace/cc-go-sdk
 
 go 1.18
 
