@@ -1,4 +1,4 @@
-## wat-go
+## cc-go
 The Cloud Compute golang software development kit (sdk).
 
 # Cloud Compute

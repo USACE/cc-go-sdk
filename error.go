@@ -1,4 +1,4 @@
-package wat
+package cc
 
 type ErrorLevel uint8
 

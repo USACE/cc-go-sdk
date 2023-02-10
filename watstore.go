@@ -1,16 +1,18 @@
-package wat
+package cc
 
 const (
 	localRootPath   = "/data"
-	remoteRootPath  = "/wat_store"
+	remoteRootPath  = "/cc_store"
 	payloadFileName = "payload"
 )
 
 type StoreType string
 
 const (
-	S3  StoreType = "S3"
-	EBS StoreType = "EBS"
+	S3    StoreType = "S3"
+	WS    StoreType = "WS"
+	RDBMS StoreType = "RDBMS"
+	EBS   StoreType = "EBS"
 )
 
 type ObjectState int8
@@ -21,12 +23,12 @@ const (
 	//RemoteDisk ObjectState = 2 //@TODO add remotedisk option for object state.
 )
 
-type WatStore interface {
+type CcStore interface {
 	PutObject(input PutObjectInput) error
 	PullObject(input PullObjectInput) error
 	GetObject(input GetObjectInput) ([]byte, error)
 	GetPayload() (Payload, error)
-	SetPayload(p Payload) error //@TODO migrate watcompute?
+	SetPayload(p Payload) error
 	RootPath() string
 	HandlesDataStoreType(datasourcetype StoreType) bool
 }
