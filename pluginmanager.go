@@ -150,7 +150,7 @@ func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destP
 	if err != nil {
 		return err
 	}
-	return store.Put(srcReader, destDs.Paths[0])
+	return store.Put(srcReader, destDs.Paths[destPath])
 }
 
 func (pm PluginManager) FileReader(ds DataSource, path int) (io.ReadCloser, error) {
