@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -21,6 +23,9 @@ const (
 	AwsS3Bucket        = "AWS_S3_BUCKET"
 )
 
+var substitutionRegex string = `{([^{}]*)}`
+var rx *regexp.Regexp
+
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
 	ws         CcStore
@@ -30,6 +35,7 @@ type PluginManager struct {
 }
 
 func InitPluginManager() (*PluginManager, error) {
+	rx, _ = regexp.Compile(substitutionRegex)
 	var manager PluginManager
 	//manager.stores = make(map[string]interface{})
 	sender := os.Getenv(CcPluginDefinition) //@TODO what is this used for?
@@ -51,7 +57,7 @@ func InitPluginManager() (*PluginManager, error) {
 	if err != nil {
 		manager.logger.LogError(Error{
 			ErrorLevel: INFO,
-			Error:      "Warning: Unable to load a payload!",
+			Error:      fmt.Sprintf("Warning: Unable to load the payload: %s\n", err),
 		})
 	} else {
 		for i, ds := range manager.payload.Stores {
@@ -78,7 +84,8 @@ func InitPluginManager() (*PluginManager, error) {
 			}
 		}
 	}
-	return &manager, nil
+	err = manager.substitutePathVariables()
+	return &manager, err
 }
 
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
@@ -88,6 +95,14 @@ func (pm PluginManager) GetPayload() Payload {
 
 func (pm PluginManager) GetInputDataSource(name string) (DataSource, error) {
 	return findDs(name, pm.payload.Inputs)
+	/*
+		ds, err := findDs(name, pm.payload.Inputs)
+		if err != nil {
+			return ds, err
+		}
+		err = pm.pathsSubstitute(&ds)
+		return ds, err
+	*/
 }
 
 func (pm PluginManager) GetOutputDataSource(name string) (DataSource, error) {
@@ -208,4 +223,60 @@ func findDs(name string, sources []DataSource) (DataSource, error) {
 		}
 	}
 	return DataSource{}, errors.New(fmt.Sprintf("Invalid DataSource Name: %s\n", name))
+}
+
+func (pm *PluginManager) substitutePathVariables() error {
+	for _, ds := range pm.payload.Inputs {
+		err := pathsSubstitute(&ds, pm.payload.Attributes)
+		if err != nil {
+			return err
+		}
+	}
+	for _, ds := range pm.payload.Outputs {
+		err := pathsSubstitute(&ds, pm.payload.Attributes)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pathsSubstitute(ds *DataSource, payloadAttr map[string]interface{}) error {
+	for i, p := range ds.Paths {
+		path, err := parameterSubstitute(p, payloadAttr)
+		if err != nil {
+			return err
+		}
+		ds.Paths[i] = path
+	}
+	return nil
+}
+
+func parameterSubstitute(path string, payloadAttr map[string]interface{}) (string, error) {
+	result := rx.FindAllStringSubmatch(path, -1)
+	for _, match := range result {
+		sub := strings.Split(match[1], "::")
+		if len(sub) != 2 {
+			return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
+		}
+		val := ""
+		switch sub[0] {
+		case "ENV":
+			val = os.Getenv(sub[1])
+			if val == "" {
+				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing environment parameter: %s\n", match[0]))
+			}
+		case "ATTR":
+			val2, ok := payloadAttr[sub[1]]
+			if !ok {
+				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing payload parameter: %s\n", match[0]))
+			}
+			val = fmt.Sprintf("%v", val2) //need to coerce non-string values into strings.  for example ints might be perfectly valid for parameter substitution in a url
+		default:
+			return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
+		}
+
+		path = strings.Replace(path, match[0], val, 1)
+	}
+	return path, nil
 }
