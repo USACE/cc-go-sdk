@@ -11,16 +11,20 @@ import (
 )
 
 const (
-	CcManifestId       = "CC_MANIFEST_ID"
-	CcEventNumber      = "CC_EVENT_NUMBER"
-	CcEventID          = "CC_EVENT_ID"
-	CcPluginDefinition = "CC_PLUGIN_DEFINITION"
-	CcProfile          = "CC"
-	CcPayloadFormatted = "CC_PAYLOAD_FORMATTED"
-	AwsAccessKeyId     = "AWS_ACCESS_KEY_ID"
-	AwsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
-	AwsDefaultRegion   = "AWS_DEFAULT_REGION"
-	AwsS3Bucket        = "AWS_S3_BUCKET"
+	CcManifestId        = "CC_MANIFEST_ID"
+	CcEventNumber       = "CC_EVENT_NUMBER"
+	CcEventID           = "CC_EVENT_ID"
+	CcPluginDefinition  = "CC_PLUGIN_DEFINITION"
+	CcProfile           = "CC"
+	CcPayloadFormatted  = "CC_PAYLOAD_FORMATTED"
+	AwsAccessKeyId      = "AWS_ACCESS_KEY_ID"
+	AwsSecretAccessKey  = "AWS_SECRET_ACCESS_KEY"
+	AwsDefaultRegion    = "AWS_DEFAULT_REGION"
+	AwsS3Bucket         = "AWS_S3_BUCKET"
+	AwsS3Mock           = "S3_MOCK"
+	AwsS3ForcePathStyle = "S3_FORCE_PATH_STYLE"
+	AwsS3DisableSSL     = "S3_DISABLE_SSL"
+	AwsS3Endpoint       = "S3_ENDPOINT"
 )
 
 var substitutionRegex string = `{([^{}]*)}`

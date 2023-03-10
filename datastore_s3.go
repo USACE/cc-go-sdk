@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/usace/filestore"
 )
@@ -43,13 +44,32 @@ func (s3ds *S3DataStore) Session() filestore.FileStore {
 }
 
 func NewS3DataStore(ds DataStore) (FileDataStore, error) {
+
 	config := filestore.S3FSConfig{
 		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsAccessKeyId)),
 		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsSecretAccessKey)),
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Bucket)),
 	}
-
+	mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Mock)))
+	if err != nil {
+		return nil, err
+	}
+	if mock {
+		disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3DisableSSL)))
+		if err != nil {
+			return nil, err
+		}
+		forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3ForcePathStyle)))
+		if err != nil {
+			return nil, err
+		}
+		endpoint := os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Endpoint))
+		config.Mock = mock
+		config.S3ForcePathStyle = forcepathstyle
+		config.S3Endpoint = endpoint
+		config.S3DisableSSL = disablessl
+	}
 	fs, err := filestore.NewFileStore(config)
 	if err != nil {
 		return nil, err
