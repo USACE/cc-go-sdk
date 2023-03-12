@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -185,10 +186,13 @@ func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.Re
 }
 
 func (pm PluginManager) EventNumber() int {
-	if event, ok := pm.payload.Attributes[CcEventNumber]; ok {
-		return event.(int)
+	sidx := os.Getenv(CcEventNumber)
+	eventNumber, err := strconv.Atoi(sidx)
+	if err != nil {
+		fmt.Println(err)
+		return -1
 	}
-	return -1
+	return eventNumber
 }
 
 func (pm PluginManager) ReportProgress(status StatusReport) {
