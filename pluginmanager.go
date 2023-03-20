@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -197,7 +196,6 @@ func (pm PluginManager) EventNumber() int {
 	eventNumber, err := strconv.Atoi(sidx)
 	if err != nil {
 		eventNumber = -1
-		log.Printf("Unable to read event number: %s", err)
 	}
 	return eventNumber
 }
