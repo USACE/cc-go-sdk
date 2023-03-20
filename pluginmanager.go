@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -186,11 +187,17 @@ func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.Re
 }
 
 func (pm PluginManager) EventNumber() int {
+	//try reading from payload attribute first
+	if event, ok := pm.payload.Attributes[CcEventNumber]; ok {
+		return event.(int)
+	}
+
+	//fall back to envrionment variable
 	sidx := os.Getenv(CcEventNumber)
 	eventNumber, err := strconv.Atoi(sidx)
 	if err != nil {
-		fmt.Println(err)
-		return -1
+		eventNumber = -1
+		log.Printf("Unable to read event number: %s", err)
 	}
 	return eventNumber
 }
