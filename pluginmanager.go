@@ -188,7 +188,7 @@ func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.Re
 func (pm PluginManager) EventNumber() int {
 	//try reading from payload attribute first
 	if event, ok := pm.payload.Attributes[CcEventNumber]; ok {
-		return event.(int)
+		return int(event.(float64))
 	}
 
 	//fall back to envrionment variable
