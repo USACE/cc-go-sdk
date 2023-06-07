@@ -18,6 +18,7 @@ type DataSource struct {
 	StoreType  StoreType         `json:"storeType" yaml:"storeType"`     //S3
 	DsProfile  string            `json:"dsProfile,omitempty" yaml:"dsProfile"`
 	Paths      []string          `json:"paths" yaml:"paths"`             //testing to support options like shapefiles which a single source consists of multiple files
+	DataPaths  []string          `json:"datapaths" yaml:"datapaths"`     //internal data set paths for data sources that contain multiple data sets
 	Parameters map[string]string `json:"params,omitempty" yaml:"params"` //testing this approach to work with internal path types
 }
 */
@@ -35,6 +36,7 @@ type DataSource struct {
 	Name      string
 	ID        *uuid.UUID
 	Paths     []string
+	DataPaths []string
 	StoreName string
 }
 
