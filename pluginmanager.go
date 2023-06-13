@@ -239,22 +239,48 @@ func findDs(name string, sources []DataSource) (DataSource, error) {
 }
 
 func (pm *PluginManager) substitutePathVariables() error {
-	for _, ds := range pm.payload.Inputs {
+	for i, ds := range pm.payload.Inputs {
 		err := pathsSubstitute(&ds, pm.payload.Attributes)
 		if err != nil {
 			return err
 		}
+		pm.payload.Inputs[i] = ds
 	}
-	for _, ds := range pm.payload.Outputs {
+	for i, ds := range pm.payload.Outputs {
 		err := pathsSubstitute(&ds, pm.payload.Attributes)
 		if err != nil {
 			return err
 		}
+		pm.payload.Outputs[i] = ds
 	}
+
+	for _, action := range pm.payload.Actions {
+		pm.substituteMapVariables(action.Parameters)
+	}
+
 	return nil
 }
 
+func (pm *PluginManager) substituteMapVariables(params map[string]any) {
+	for param, val := range params {
+		switch val.(type) {
+		case string:
+			newval, err := parameterSubstitute(val, pm.payload.Attributes)
+			if err == nil {
+				params[param] = newval
+			}
+		case map[string]any:
+			pm.substituteMapVariables(val.(map[string]any))
+		}
+	}
+}
+
 func pathsSubstitute(ds *DataSource, payloadAttr map[string]interface{}) error {
+	name, err := parameterSubstitute(ds.Name, payloadAttr)
+	if err != nil {
+		return err
+	}
+	ds.Name = name
 	for i, p := range ds.Paths {
 		path, err := parameterSubstitute(p, payloadAttr)
 		if err != nil {
@@ -265,31 +291,37 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]interface{}) error {
 	return nil
 }
 
-func parameterSubstitute(path string, payloadAttr map[string]interface{}) (string, error) {
-	result := rx.FindAllStringSubmatch(path, -1)
-	for _, match := range result {
-		sub := strings.Split(match[1], "::")
-		if len(sub) != 2 {
-			return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
-		}
-		val := ""
-		switch sub[0] {
-		case "ENV":
-			val = os.Getenv(sub[1])
-			if val == "" {
-				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing environment parameter: %s\n", match[0]))
+func parameterSubstitute(param interface{}, payloadAttr map[string]interface{}) (string, error) {
+	switch param.(type) {
+	case string:
+		strparam := param.(string)
+		result := rx.FindAllStringSubmatch(strparam, -1)
+		for _, match := range result {
+			sub := strings.Split(match[1], "::")
+			if len(sub) != 2 {
+				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
 			}
-		case "ATTR":
-			val2, ok := payloadAttr[sub[1]]
-			if !ok {
-				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing payload parameter: %s\n", match[0]))
+			val := ""
+			switch sub[0] {
+			case "ENV":
+				val = os.Getenv(sub[1])
+				if val == "" {
+					return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing environment parameter: %s\n", match[0]))
+				}
+			case "ATTR":
+				val2, ok := payloadAttr[sub[1]]
+				if !ok {
+					return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing payload parameter: %s\n", match[0]))
+				}
+				val = fmt.Sprintf("%v", val2) //need to coerce non-string values into strings.  for example ints might be perfectly valid for parameter substitution in a url
+			default:
+				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
 			}
-			val = fmt.Sprintf("%v", val2) //need to coerce non-string values into strings.  for example ints might be perfectly valid for parameter substitution in a url
-		default:
-			return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
-		}
 
-		path = strings.Replace(path, match[0], val, 1)
+			strparam = strings.Replace(strparam, match[0], val, 1)
+		}
+		return strparam, nil
+	default:
+		return "", errors.New("Invalid parameter type")
 	}
-	return path, nil
 }
