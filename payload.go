@@ -2,7 +2,7 @@ package cc
 
 type Action struct {
 	Name        string         `json:"name"`
-	Type        string         `json:"type"`
+	Type        *string        `json:"type,omitempty"`
 	Description string         `json:"desc"`
 	Parameters  map[string]any `json:"params"`
 }
