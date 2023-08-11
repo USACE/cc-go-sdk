@@ -3,16 +3,17 @@ package cc
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/spf13/cast"
 )
 
 type Action struct {
-	Name        string         `json:"name"`
-	Type        string         `json:"type,omitempty"`
-	Description string         `json:"desc"`
-	Parameters  map[string]any `json:"params"`
+	Name        string            `json:"name"`
+	Type        string            `json:"type,omitempty"`
+	Description string            `json:"desc"`
+	Parameters  PayloadAttributes `json:"params"`
 }
 
 type Payload struct {
@@ -25,20 +26,20 @@ type Payload struct {
 
 type PayloadAttributes map[string]interface{}
 
-func (p PayloadAttributes) GetIntAttr(name string) (int, error) {
+func (p PayloadAttributes) GetInt(name string) (int, error) {
 	i, err := GetAttribute[int64](p, name)
 	return int(i), err
 }
 
-func (p PayloadAttributes) GetInt64Attr(name string) (int64, error) {
+func (p PayloadAttributes) GetInt64(name string) (int64, error) {
 	return GetAttribute[int64](p, name)
 }
 
-func (p PayloadAttributes) GetFloatAttr(name string) (float64, error) {
+func (p PayloadAttributes) GetFloat(name string) (float64, error) {
 	return GetAttribute[float64](p, name)
 }
 
-func (p PayloadAttributes) GetStringAttr(name string) (string, error) {
+func (p PayloadAttributes) GetString(name string) (string, error) {
 	return GetAttribute[string](p, name)
 }
 
@@ -69,4 +70,21 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 		}
 	}
 	return t, errors.New(fmt.Sprintf("Attribute %s is not in the payload\n", name))
+}
+
+func GetOrFail[T PayloadAttributeTypes](pa PayloadAttributes, attr string) T {
+	val, err := GetAttribute[T](pa, attr)
+	if err != nil {
+		log.Fatalf("Invalid value for %v\n", err)
+	}
+	return val
+}
+
+func GetOrDefault[T PayloadAttributeTypes](pa PayloadAttributes, attr string, defaultVal T) T {
+	val, err := GetAttribute[T](pa, attr)
+	if err != nil {
+		val = defaultVal
+		log.Printf("Invalid value for %v. Using default of: %v\n", err, defaultVal)
+	}
+	return val
 }
