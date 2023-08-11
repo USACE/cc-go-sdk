@@ -50,9 +50,8 @@ type PayloadAttributeTypes interface {
 func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T, error) {
 	var t T
 	if attr, ok := pa[name]; ok {
-		tv := reflect.ValueOf(t)
 		tve := reflect.ValueOf(&t).Elem()
-		tk := tv.Kind()
+		tk := tve.Kind()
 		switch tk {
 		case reflect.Int32, reflect.Int64:
 			i, err := cast.ToInt64E(attr)
