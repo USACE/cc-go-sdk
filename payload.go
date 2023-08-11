@@ -51,19 +51,20 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 	var t T
 	if attr, ok := pa[name]; ok {
 		tv := reflect.ValueOf(t)
+		tve := reflect.ValueOf(&t).Elem()
 		tk := tv.Kind()
 		switch tk {
 		case reflect.Int32, reflect.Int64:
-			i, err := cast.ToIntE(attr)
-			tv.Set(reflect.ValueOf(i))
+			i, err := cast.ToInt64E(attr)
+			tve.Set(reflect.ValueOf(i))
 			return t, err
 		case reflect.String:
 			s, err := cast.ToStringE(attr)
-			tv.Set(reflect.ValueOf(s))
+			tve.Set(reflect.ValueOf(s))
 			return t, err
 		case reflect.Float64:
 			f, err := cast.ToFloat64E(attr)
-			tv.Set(reflect.ValueOf(f))
+			tve.Set(reflect.ValueOf(f))
 			return t, err
 		default:
 			return t, errors.New("Unsupported type for cast")
