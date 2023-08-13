@@ -24,7 +24,7 @@ type Payload struct {
 	Actions    []Action          `json:"actions"`
 }
 
-type PayloadAttributes map[string]interface{}
+type PayloadAttributes map[string]any
 
 func (p PayloadAttributes) GetInt(name string) (int, error) {
 	return GetAttribute[int](p, name)

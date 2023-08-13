@@ -275,7 +275,7 @@ func (pm *PluginManager) substituteMapVariables(params map[string]any) {
 	}
 }
 
-func pathsSubstitute(ds *DataSource, payloadAttr map[string]interface{}) error {
+func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 	name, err := parameterSubstitute(ds.Name, payloadAttr)
 	if err != nil {
 		return err
@@ -291,7 +291,7 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]interface{}) error {
 	return nil
 }
 
-func parameterSubstitute(param interface{}, payloadAttr map[string]interface{}) (string, error) {
+func parameterSubstitute(param interface{}, payloadAttr map[string]any) (string, error) {
 	switch param.(type) {
 	case string:
 		strparam := param.(string)
