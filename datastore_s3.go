@@ -77,7 +77,11 @@ func NewS3DataStore(ds DataStore) (FileDataStore, error) {
 	}
 
 	if root, ok := ds.Parameters[S3ROOT]; ok {
-		return &S3DataStore{fs, root}, nil
+		if rootstr, ok := root.(string); ok {
+			return &S3DataStore{fs, rootstr}, nil
+		} else {
+			return nil, errors.New("Invalid S3 Root parameter.  Parameter must be a string.")
+		}
 	} else {
 		return nil, errors.New("Missing S3 Root parameter.  Cannot create the store.")
 	}
