@@ -109,6 +109,14 @@ func (pm PluginManager) CopyToLocal(ds DataSource, pathIndex int, localPath stri
 	return err
 }
 
+func (pm PluginManager) CopyToRemote(localpath string, ds DataSource, pathindex int) error {
+	reader, err := os.Open(localpath)
+	if err != nil {
+		return err
+	}
+	return pm.FileWriter(reader, ds, pathindex)
+}
+
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
 func (pm PluginManager) GetPayload() Payload {
 	return pm.payload

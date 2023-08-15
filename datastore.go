@@ -32,6 +32,12 @@ type DataStore struct {
 	Parameters PayloadAttributes
 	Session    interface{}
 }
+type FileDataStore interface {
+	Copy(destStore FileDataStore, srcpath string, destpath string) error
+	Get(path string) (io.ReadCloser, error)
+	Put(reader io.Reader, path string) error
+	Delete(path string) error
+}
 
 type DataSource struct {
 	Name      string
@@ -39,11 +45,4 @@ type DataSource struct {
 	Paths     []string
 	DataPaths []string
 	StoreName string
-}
-
-type FileDataStore interface {
-	Copy(destStore FileDataStore, srcpath string, destpath string) error
-	Get(path string) (io.ReadCloser, error)
-	Put(reader io.Reader, path string) error
-	Delete(path string) error
 }
