@@ -5,9 +5,9 @@ go 1.18
 require github.com/google/uuid v1.3.0
 
 require (
-	github.com/aws/aws-sdk-go v1.44.189 // indirect
+	github.com/aws/aws-sdk-go v1.44.325 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/usace/filestore v0.0.0-20230309205740-49d6e1f06e4a // indirect
+	github.com/usace/filestore2 v0.0.0-20230817171325-a9673451c7d2 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 )

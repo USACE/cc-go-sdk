@@ -9,9 +9,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 
-	"github.com/usace/filestore"
+	filestore "github.com/usace/filestore2"
 )
 
 const ()
@@ -81,22 +80,24 @@ func NewCcStore(manifestArgs ...string) (CcStore, error) {
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
 	}
-	mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
-	if mock {
-		disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3DisableSSL)))
-		if err != nil {
-			return nil, err
+	//mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
+	/*
+		if mock {
+			disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3DisableSSL)))
+			if err != nil {
+				return nil, err
+			}
+			forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3ForcePathStyle)))
+			if err != nil {
+				return nil, err
+			}
+			endpoint := os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Endpoint))
+			config.Mock = mock
+			config.S3ForcePathStyle = forcepathstyle
+			config.S3Endpoint = endpoint
+			config.S3DisableSSL = disablessl
 		}
-		forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3ForcePathStyle)))
-		if err != nil {
-			return nil, err
-		}
-		endpoint := os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Endpoint))
-		config.Mock = mock
-		config.S3ForcePathStyle = forcepathstyle
-		config.S3Endpoint = endpoint
-		config.S3DisableSSL = disablessl
-	}
+	*/
 	fs, err := filestore.NewFileStore(config)
 	if err != nil {
 		return nil, err

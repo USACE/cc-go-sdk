@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/usace/filestore"
+	filestore "github.com/usace/filestore2"
 )
 
 const (
