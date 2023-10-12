@@ -101,9 +101,17 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 		tve := reflect.ValueOf(&t).Elem()
 		tk := tve.Kind()
 		switch tk {
-		case reflect.Int, reflect.Int32, reflect.Int64:
+		case reflect.Int64:
 			i, err := cast.ToInt64E(attr)
 			tve.Set(reflect.ValueOf(i))
+			return t, err
+		case reflect.Int:
+			i, err := cast.ToInt64E(attr)
+			tve.Set(reflect.ValueOf(int(i)))
+			return t, err
+		case reflect.Int32:
+			i, err := cast.ToInt64E(attr)
+			tve.Set(reflect.ValueOf(int32(i)))
 			return t, err
 		case reflect.String:
 			s, err := cast.ToStringE(attr)
