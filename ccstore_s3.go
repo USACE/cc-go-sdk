@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	filestore "github.com/usace/filestore2"
+	filestore "github.com/usace/filesapi"
 )
 
 const ()
@@ -30,8 +30,10 @@ type S3CcStore struct {
 func NewS3CcStore() (CcStore, error) {
 	manifestId := os.Getenv(CcManifestId)
 	config := filestore.S3FSConfig{
-		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
-		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
+		Credentials: filestore.S3FS_Static{
+			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
+			S3Key: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
+		},
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
 	}
@@ -75,8 +77,10 @@ func NewCcStore(manifestArgs ...string) (CcStore, error) {
 		manifestId = os.Getenv(CcManifestId)
 	}
 	config := filestore.S3FSConfig{
-		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
-		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
+		Credentials: filestore.S3FS_Static{
+			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
+			S3Key: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
+		},
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
 	}
@@ -133,7 +137,13 @@ func (ws *S3CcStore) PutObject(poi PutObjectInput) error {
 		//handle remote to remote??
 		return errors.New("not currently supporting remote to remote data transfers - use getobject to retrieve bytes and push as memory object via put object")
 	}
-	foo, err := ws.fs.PutObject(s3path, data)
+	p := filestore.PutObjectInput{
+		Source: filestore.ObjectSource{
+			Data: data,
+		},
+		Dest: s3path,
+	}
+	foo, err := ws.fs.PutObject(p)
 	if err != nil {
 		log.Println(foo)
 	}
@@ -143,7 +153,10 @@ func (ws *S3CcStore) PutObject(poi PutObjectInput) error {
 // GetObject takes a file name as input and builds a key based on the remoteRootPath, the manifestid and the file name to find an object on S3 and returns the bytes of that object.
 func (ws *S3CcStore) GetObject(input GetObjectInput) ([]byte, error) {
 	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s.%s", input.SourceRootPath, ws.manifestId, input.FileName, input.FileExtension)}
-	reader, err := ws.fs.GetObject(path)
+	goi := filestore.GetObjectInput{
+		Path: path,
+	}
+	reader, err := ws.fs.GetObject(goi)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +169,10 @@ func (ws *S3CcStore) GetObject(input GetObjectInput) ([]byte, error) {
 func (ws *S3CcStore) GetPayload() (Payload, error) {
 	payload := Payload{}
 	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, payloadFileName)}
-	reader, err := ws.fs.GetObject(path)
+	goi := filestore.GetObjectInput{
+		Path: path,
+	}
+	reader, err := ws.fs.GetObject(goi)
 	if err != nil {
 		return payload, err
 	}
@@ -181,7 +197,13 @@ func (ws *S3CcStore) SetPayload(p Payload) error {
 	if err != nil {
 		return err
 	}
-	foo, err := ws.fs.PutObject(s3path, data)
+	poi := filestore.PutObjectInput{
+		Source: filestore.ObjectSource{
+			Data: data,
+		},
+		Dest: s3path,
+	}
+	foo, err := ws.fs.PutObject(poi)
 	if err != nil {
 		log.Println(foo)
 	}
@@ -201,7 +223,10 @@ func (ws *S3CcStore) PullObject(input PullObjectInput) error {
 	writer := bufio.NewWriter(f)
 
 	//open source
-	reader, err := ws.fs.GetObject(path)
+	goi := filestore.GetObjectInput{
+		Path: path,
+	}
+	reader, err := ws.fs.GetObject(goi)
 	if err != nil {
 		return err
 	}
