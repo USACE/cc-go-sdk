@@ -10,6 +10,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
 	filestore "github.com/usace/filesapi"
 )
 
@@ -36,6 +39,11 @@ func NewS3CcStore() (CcStore, error) {
 		},
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
+		AwsOptions: []func(*config.LoadOptions) error{
+			config.WithRetryer(func() aws.Retryer {
+				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
+			}),
+		},
 	}
 	/*
 		mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
@@ -83,6 +91,11 @@ func NewCcStore(manifestArgs ...string) (CcStore, error) {
 		},
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
+		AwsOptions: []func(*config.LoadOptions) error{
+			config.WithRetryer(func() aws.Retryer {
+				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
+			}),
+		},
 	}
 	//mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
 	/*
