@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	filestore "github.com/usace/filestore2"
+	filestore "github.com/usace/filesapi"
 )
 
 const (
@@ -19,7 +19,10 @@ type S3DataStore struct {
 }
 
 func (s3ds *S3DataStore) Copy(destStore FileDataStore, srcpath string, destpath string) error {
-	reader, err := s3ds.fs.GetObject(filestore.PathConfig{Path: srcpath})
+	fsgoi := filestore.GetObjectInput{
+		Path: filestore.PathConfig{Path: srcpath},
+	}
+	reader, err := s3ds.fs.GetObject(fsgoi)
 	if err != nil {
 		return err
 	}
@@ -27,11 +30,22 @@ func (s3ds *S3DataStore) Copy(destStore FileDataStore, srcpath string, destpath 
 }
 
 func (s3ds *S3DataStore) Get(path string) (io.ReadCloser, error) {
-	return s3ds.fs.GetObject(filestore.PathConfig{Path: s3ds.root + "/" + path})
+	fsgoi := filestore.GetObjectInput{
+		Path: filestore.PathConfig{Path: s3ds.root + "/" + path},
+	}
+
+	return s3ds.fs.GetObject(fsgoi)
 }
 
-func (s3ds *S3DataStore) Put(reader io.Reader, path string) error {
-	return s3ds.fs.Upload(reader, s3ds.root+"/"+path)
+func (s3ds *S3DataStore) Put(reader io.ReadCloser, path string) error {
+	poi := filestore.PutObjectInput{
+		Source: filestore.ObjectSource{
+			Reader: reader,
+		},
+		Dest: filestore.PathConfig{Path: s3ds.root + "/" + path},
+	}
+	_, err := s3ds.fs.PutObject(poi)
+	return err
 }
 
 func (s3ds *S3DataStore) Delete(path string) error {
@@ -45,8 +59,10 @@ func (s3ds *S3DataStore) Session() filestore.FileStore {
 func NewS3DataStore(ds DataStore) (FileDataStore, error) {
 
 	config := filestore.S3FSConfig{
-		S3Id:     os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsAccessKeyId)),
-		S3Key:    os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsSecretAccessKey)),
+		Credentials: filestore.S3FS_Static{
+			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsAccessKeyId)),
+			S3Key: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsSecretAccessKey)),
+		},
 		S3Region: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsDefaultRegion)),
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Bucket)),
 	}
