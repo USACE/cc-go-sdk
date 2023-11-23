@@ -67,6 +67,8 @@ github.com/usace/filesapi v0.0.0-20231123145000-c700b52e53cf h1:1+RKEtE/GrNmXHJp
 github.com/usace/filesapi v0.0.0-20231123145000-c700b52e53cf/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
 github.com/usace/filesapi v0.0.0-20231123153208-4a013c586bb9 h1:7qP1/zxujjNeKDEdSbYfOfsyWiU+WLh4uLur3myZGHY=
 github.com/usace/filesapi v0.0.0-20231123153208-4a013c586bb9/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
+github.com/usace/filesapi v0.0.0-20231123170634-24f2bdf5f03f h1:pGGTowb5p1uF74TPLvC5yi6/ifOtDs2eNWCV33OL9Qw=
+github.com/usace/filesapi v0.0.0-20231123170634-24f2bdf5f03f/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
 github.com/usace/filesapi v1.0.0 h1:r6a2ouagUiGdXIDKfqAB+ZgFGXsY1fT15HSs5I+AXWQ=
 github.com/usace/filesapi v1.0.0/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
 github.com/usace/filestore v0.0.0-20220311141535-9ec1e86b5058 h1:H5z9z8TXJqRtiAKficjEu/dyf0KONfMFBIJ8cYzhucY=
