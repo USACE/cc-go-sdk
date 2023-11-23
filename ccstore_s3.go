@@ -216,10 +216,7 @@ func (ws *S3CcStore) SetPayload(p Payload) error {
 			Data: data,
 		},
 	}
-	foo, err := ws.fs.PutObject(fspoi)
-	if err != nil {
-		log.Println(foo)
-	}
+	_, err = ws.fs.PutObject(fspoi)
 	return err
 }
 
