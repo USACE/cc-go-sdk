@@ -41,7 +41,7 @@ func NewS3CcStore() (CcStore, error) {
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
 		AwsOptions: []func(*config.LoadOptions) error{
 			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), 100)
+				return retry.AddWithMaxAttempts(retry.NewStandard(), maxretry)
 			}),
 		},
 	}
@@ -93,7 +93,7 @@ func NewCcStore(manifestArgs ...string) (CcStore, error) {
 		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
 		AwsOptions: []func(*config.LoadOptions) error{
 			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
+				return retry.AddWithMaxAttempts(retry.NewStandard(), maxretry)
 			}),
 		},
 	}

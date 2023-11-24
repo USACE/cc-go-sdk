@@ -30,6 +30,7 @@ const (
 
 var substitutionRegex string = `{([^{}]*)}`
 var rx *regexp.Regexp
+var maxretry int = 100
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
@@ -37,6 +38,15 @@ type PluginManager struct {
 	manifestId string
 	logger     Logger
 	payload    Payload
+}
+
+type PluginManagerConfig struct {
+	MaxRetry int
+}
+
+func InitPluginManagerWithConfig(config PluginManagerConfig) (*PluginManager, error) {
+	maxretry = config.MaxRetry
+	return InitPluginManager()
 }
 
 func InitPluginManager() (*PluginManager, error) {
