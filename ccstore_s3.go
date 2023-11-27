@@ -27,57 +27,11 @@ type S3CcStore struct {
 	storeType      StoreType
 }
 
-// NewS3CcStore produces a CcStore backed by an S3 bucket based on environment variables.
-// @TODO: Switch to aws golang v2 s3 api and use profile for connection?????
-// @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
-func NewS3CcStore() (CcStore, error) {
-	manifestId := os.Getenv(CcManifestId)
-	config := filestore.S3FSConfig{
-		Credentials: filestore.S3FS_Static{
-			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
-			S3Key: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
-		},
-		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
-		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
-		AwsOptions: []func(*config.LoadOptions) error{
-			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), maxretry)
-			}),
-		},
-	}
-	/*
-		mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
-		if err != nil {
-			return nil, err
-		}
-		if mock {
-			disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3DisableSSL)))
-			if err != nil {
-				return nil, err
-			}
-			forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3ForcePathStyle)))
-			if err != nil {
-				return nil, err
-			}
-			endpoint := os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Endpoint))
-			config.Mock = mock
-			config.S3ForcePathStyle = forcepathstyle
-			config.S3Endpoint = endpoint
-			config.S3DisableSSL = disablessl
-		}
-	*/
-	fs, err := filestore.NewFileStore(config)
-	if err != nil {
-		return nil, err
-	}
-	return &S3CcStore{fs, localRootPath, remoteRootPath, manifestId, S3}, nil
-}
-
 // NewCcStore produces a CcStore backed by an S3 bucket
 // if no arguments are supplied, the manifestid will get loaded from the environment
 // @TODO: Switch to aws golang v2 s3 api and use profile for connection?????
 // @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
-func NewCcStore(manifestArgs ...string) (CcStore, error) {
+func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	var manifestId string
 	if len(manifestArgs) > 0 {
 		manifestId = manifestArgs[0]
@@ -97,24 +51,7 @@ func NewCcStore(manifestArgs ...string) (CcStore, error) {
 			}),
 		},
 	}
-	//mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Mock)))
-	/*
-		if mock {
-			disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3DisableSSL)))
-			if err != nil {
-				return nil, err
-			}
-			forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3ForcePathStyle)))
-			if err != nil {
-				return nil, err
-			}
-			endpoint := os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Endpoint))
-			config.Mock = mock
-			config.S3ForcePathStyle = forcepathstyle
-			config.S3Endpoint = endpoint
-			config.S3DisableSSL = disablessl
-		}
-	*/
+
 	fs, err := filestore.NewFileStore(config)
 	if err != nil {
 		return nil, err

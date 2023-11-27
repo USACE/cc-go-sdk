@@ -55,4 +55,8 @@ type PullObjectInput struct {
 	FileExtension       string
 }
 
+func NewCcStore(manifestArgs ...string) (CcStore, error) {
+	return NewS3CcStore(manifestArgs...)
+}
+
 // @TODO jobid is really the manifest id
