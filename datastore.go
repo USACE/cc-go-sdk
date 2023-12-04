@@ -35,7 +35,7 @@ type DataStore struct {
 type FileDataStore interface {
 	Copy(destStore FileDataStore, srcpath string, destpath string) error
 	Get(path string) (io.ReadCloser, error)
-	Put(reader io.ReadCloser, path string) error
+	Put(reader io.Reader, path string) error
 	Delete(path string) error
 }
 

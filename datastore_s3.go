@@ -40,7 +40,7 @@ func (s3ds *S3DataStore) Get(path string) (io.ReadCloser, error) {
 	return s3ds.fs.GetObject(fsgoi)
 }
 
-func (s3ds *S3DataStore) Put(reader io.ReadCloser, path string) error {
+func (s3ds *S3DataStore) Put(reader io.Reader, path string) error {
 	poi := filestore.PutObjectInput{
 		Source: filestore.ObjectSource{
 			Reader: reader,

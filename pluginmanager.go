@@ -184,7 +184,7 @@ func (pm PluginManager) PutFile(data []byte, ds DataSource, path int) error {
 	return store.Put(reader, ds.Paths[path])
 }
 
-func (pm PluginManager) FileWriter(srcReader io.ReadCloser, destDs DataSource, destPath int) error {
+func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destPath int) error {
 	store, err := getSession[FileDataStore](&pm, destDs.StoreName)
 	if err != nil {
 		return err

@@ -66,6 +66,14 @@ func (p PayloadAttributes) GetString(name string) (string, error) {
 	return GetAttribute[string](p, name)
 }
 
+func (p PayloadAttributes) GetStringSlice(name string) ([]string, error) {
+	vals, ok := p[name]
+	if !ok {
+		return nil, fmt.Errorf("Invalid value for %s\n", name)
+	}
+	return Slice2Type[string](vals.([]any)), nil
+}
+
 func (p PayloadAttributes) GetStringOrFail(name string) string {
 	return GetOrFail[string](p, name)
 }
@@ -75,7 +83,7 @@ func (p PayloadAttributes) GetStringOrDefault(name string, defaultVal string) st
 }
 
 type PayloadAttributeTypes interface {
-	int64 | int32 | int | float64 | string
+	int64 | int32 | int | float64 | string | bool
 }
 
 func GetOrFail[T PayloadAttributeTypes](pa PayloadAttributes, attr string) T {
@@ -126,4 +134,12 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 		}
 	}
 	return t, errors.New(fmt.Sprintf("Attribute %s is not in the payload\n", name))
+}
+
+func Slice2Type[T any](input []any) []T {
+	out := make([]T, len(input))
+	for i, v := range input {
+		out[i] = v.(T)
+	}
+	return out
 }
