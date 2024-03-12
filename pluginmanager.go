@@ -18,6 +18,7 @@ const (
 	CcPluginDefinition  = "CC_PLUGIN_DEFINITION"
 	CcProfile           = "CC"
 	CcPayloadFormatted  = "CC_PAYLOAD_FORMATTED"
+	CcRootPath          = "CC_ROOT"
 	AwsAccessKeyId      = "AWS_ACCESS_KEY_ID"
 	AwsSecretAccessKey  = "AWS_SECRET_ACCESS_KEY"
 	AwsDefaultRegion    = "AWS_DEFAULT_REGION"
