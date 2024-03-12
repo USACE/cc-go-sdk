@@ -2,13 +2,8 @@ package cc
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"os"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
-	"github.com/aws/aws-sdk-go-v2/config"
 	filestore "github.com/usace/filesapi"
 )
 
@@ -60,42 +55,8 @@ func (s3ds *S3DataStore) Session() filestore.FileStore {
 }
 
 func NewS3DataStore(ds DataStore) (FileDataStore, error) {
-
-	config := filestore.S3FSConfig{
-		Credentials: filestore.S3FS_Static{
-			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsAccessKeyId)),
-			S3Key: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsSecretAccessKey)),
-		},
-		S3Region: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsDefaultRegion)),
-		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Bucket)),
-		AwsOptions: []func(*config.LoadOptions) error{
-			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
-			}),
-		},
-	}
-	/*
-		mock, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Mock)))
-		if err != nil {
-			return nil, err
-		}
-		if mock {
-			disablessl, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3DisableSSL)))
-			if err != nil {
-				return nil, err
-			}
-			forcepathstyle, err := strconv.ParseBool(os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3ForcePathStyle)))
-			if err != nil {
-				return nil, err
-			}
-			endpoint := os.Getenv(fmt.Sprintf("%s_%s", ds.DsProfile, AwsS3Endpoint))
-			config.Mock = mock
-			config.S3ForcePathStyle = forcepathstyle
-			config.S3Endpoint = endpoint
-			config.S3DisableSSL = disablessl
-		}
-	*/
-	fs, err := filestore.NewFileStore(config)
+	awsconfig := buildS3Config(ds.DsProfile)
+	fs, err := filestore.NewFileStore(awsconfig)
 	if err != nil {
 		return nil, err
 	}

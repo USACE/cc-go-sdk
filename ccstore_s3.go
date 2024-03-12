@@ -29,7 +29,6 @@ type S3CcStore struct {
 
 // NewCcStore produces a CcStore backed by an S3 bucket
 // if no arguments are supplied, the manifestid will get loaded from the environment
-// @TODO: Switch to aws golang v2 s3 api and use profile for connection?????
 // @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
 func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	var manifestId string
@@ -38,25 +37,17 @@ func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	} else {
 		manifestId = os.Getenv(CcManifestId)
 	}
-	config := filestore.S3FSConfig{
-		Credentials: filestore.S3FS_Static{
-			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsAccessKeyId)),
-			S3Key: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsSecretAccessKey)),
-		},
-		S3Region: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsDefaultRegion)),
-		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", CcProfile, AwsS3Bucket)),
-		AwsOptions: []func(*config.LoadOptions) error{
-			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), maxretry)
-			}),
-		},
+	awsconfig := buildS3Config(CcProfile)
+	rootPath := os.Getenv(CcRootPath)
+	if rootPath == "" {
+		rootPath = remoteRootPath //set to default
 	}
 
-	fs, err := filestore.NewFileStore(config)
+	fs, err := filestore.NewFileStore(awsconfig)
 	if err != nil {
 		return nil, err
 	}
-	return &S3CcStore{fs, localRootPath, remoteRootPath, manifestId, S3}, nil
+	return &S3CcStore{fs, localRootPath, rootPath, manifestId, S3}, nil
 }
 
 // HandlesDataSource determines if a datasource is handled by this store
@@ -181,4 +172,36 @@ func (ws *S3CcStore) PullObject(input PullObjectInput) error {
 
 	_, err = io.Copy(writer, reader)
 	return err
+}
+
+func buildS3Config(profile string) filestore.S3FSConfig {
+	awsconfig := filestore.S3FSConfig{
+		Credentials: filestore.S3FS_Static{
+			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", profile, AwsAccessKeyId)),
+			S3Key: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsSecretAccessKey)),
+		},
+		S3Region: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion)),
+		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket)),
+		AwsOptions: []func(*config.LoadOptions) error{
+			config.WithRetryer(func() aws.Retryer {
+				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
+			}),
+		},
+	}
+
+	shouldMock := os.Getenv(AwsS3Mock)
+	if shouldMock == "true" {
+		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				PartitionID:       "aws",
+				URL:               os.Getenv(AwsS3Endpoint),
+				SigningRegion:     region,
+				HostnameImmutable: true,
+			}, nil
+			// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+			return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+		})
+		awsconfig.AwsOptions = append(awsconfig.AwsOptions, config.WithEndpointResolverWithOptions(customResolver))
+	}
+	return awsconfig
 }
