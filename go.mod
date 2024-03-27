@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.3
 	github.com/google/uuid v1.5.0
 	github.com/spf13/cast v1.6.0
-	github.com/usace/filesapi v1.0.0
+	github.com/usace/filesapi v0.0.0-20240315200543-841da1a812a3
 )
 
 require (
