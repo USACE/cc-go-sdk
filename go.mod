@@ -2,12 +2,13 @@ module github.com/usace/cc-go-sdk
 
 go 1.18
 
+//replace github.com/usace/filesapi => /Users/rdcrlrsg/Projects/programming/go/src/github.com/usace/filesapi
 require (
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.3
 	github.com/google/uuid v1.5.0
 	github.com/spf13/cast v1.6.0
-	github.com/usace/filesapi v0.0.0-20240105190612-7968d4f3fe61
+	github.com/usace/filesapi v1.0.0
 )
 
 require (

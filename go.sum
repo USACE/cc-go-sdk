@@ -56,6 +56,8 @@ github.com/spf13/cast v1.6.0/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cA
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/usace/filesapi v0.0.0-20240105190612-7968d4f3fe61 h1:5XBnZbJhmbRfBfhUqMzqkRIOkzbEp6MhDKsj7SK7tIk=
 github.com/usace/filesapi v0.0.0-20240105190612-7968d4f3fe61/go.mod h1:n93SV2TkqTZQvaxEmraFCSMUDTbPVyc2uc8q+UTp9Q8=
+github.com/usace/filesapi v1.0.0 h1:r6a2ouagUiGdXIDKfqAB+ZgFGXsY1fT15HSs5I+AXWQ=
+github.com/usace/filesapi v1.0.0/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=
 gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
