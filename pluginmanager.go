@@ -172,6 +172,9 @@ func (pm PluginManager) GetFile(ds DataSource, path int) ([]byte, error) {
 	}
 	var buf bytes.Buffer
 	reader, err := store.Get(ds.Paths[path])
+	if err != nil {
+		return nil, err
+	}
 	_, err = buf.ReadFrom(reader)
 	return buf.Bytes(), err
 }
@@ -181,7 +184,8 @@ func (pm PluginManager) PutFile(data []byte, ds DataSource, path int) error {
 	if err != nil {
 		return err
 	}
-	reader := io.NopCloser(bytes.NewReader(data))
+	//reader := io.NopCloser(bytes.NewReader(data))
+	reader := bytes.NewReader(data)
 	return store.Put(reader, ds.Paths[path])
 }
 
