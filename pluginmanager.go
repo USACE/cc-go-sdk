@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	CcPayloadId         = "CC_PAYLOAD_ID"
 	CcManifestId        = "CC_MANIFEST_ID"
 	CcEventNumber       = "CC_EVENT_NUMBER"
 	CcEventID           = "CC_EVENT_ID"
