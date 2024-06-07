@@ -62,6 +62,14 @@ func (p PayloadAttributes) GetFloatOrDefault(name string, defaultValue float64) 
 	return GetOrDefault[float64](p, name, defaultValue)
 }
 
+func (p PayloadAttributes) GetFloatSlice(name string) ([]float64, error) {
+	vals, ok := p[name]
+	if !ok {
+		return nil, fmt.Errorf("Invalid value for %s\n", name)
+	}
+	return Slice2Type[float64](vals.([]any)), nil
+}
+
 func (p PayloadAttributes) GetString(name string) (string, error) {
 	return GetAttribute[string](p, name)
 }

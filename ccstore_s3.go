@@ -23,6 +23,7 @@ type S3CcStore struct {
 	localRootPath  string
 	remoteRootPath string
 	manifestId     string
+	payloadId      string
 	storeType      StoreType
 }
 
@@ -31,10 +32,13 @@ type S3CcStore struct {
 // @TODO: make sure file operations use io and readers and stream chunks.  avoid large files in memory.
 func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	var manifestId string
+	var payloadId string
 	if len(manifestArgs) > 0 {
 		manifestId = manifestArgs[0]
+		payloadId = manifestArgs[1]
 	} else {
 		manifestId = os.Getenv(CcManifestId)
+		payloadId = os.Getenv(CcPayloadId)
 	}
 	awsconfig := buildS3Config(CcProfile)
 	rootPath := os.Getenv(CcRootPath)
@@ -46,7 +50,7 @@ func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &S3CcStore{fs, localRootPath, rootPath, manifestId, S3}, nil
+	return &S3CcStore{fs, localRootPath, rootPath, manifestId, payloadId, S3}, nil
 }
 
 // HandlesDataSource determines if a datasource is handled by this store
@@ -108,7 +112,7 @@ func (ws *S3CcStore) GetObject(input GetObjectInput) ([]byte, error) {
 // GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
 func (ws *S3CcStore) GetPayload() (Payload, error) {
 	payload := Payload{}
-	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, payloadFileName)}
+	path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.payloadId, payloadFileName)}
 	fsgoi := filestore.GetObjectInput{
 		Path: path,
 	}
@@ -125,7 +129,7 @@ func (ws *S3CcStore) GetPayload() (Payload, error) {
 
 // SetPayload sets a payload. This is designed for cloud compute to use, please do not use this method in a plugin.
 func (ws *S3CcStore) SetPayload(p Payload) error {
-	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.manifestId, "payload")}
+	s3path := filestore.PathConfig{Path: fmt.Sprintf("%s/%s/%s", ws.remoteRootPath, ws.payloadId, "payload")}
 	_, shouldFormat := os.LookupEnv(CcPayloadFormatted)
 	var data []byte
 	var err error
@@ -198,7 +202,7 @@ func buildS3Config(profile string) filestore.S3FSConfig {
 				HostnameImmutable: true,
 			}, nil
 			// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-			return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+			//return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 		})
 		awsconfig.AwsOptions = append(awsconfig.AwsOptions, config.WithEndpointResolverWithOptions(customResolver))
 	}
