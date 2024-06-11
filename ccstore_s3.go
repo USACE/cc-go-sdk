@@ -33,7 +33,7 @@ type S3CcStore struct {
 func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	var manifestId string
 	var payloadId string
-	if len(manifestArgs) > 0 {
+	if len(manifestArgs) > 1 {
 		manifestId = manifestArgs[0]
 		payloadId = manifestArgs[1]
 	} else {
