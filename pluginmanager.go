@@ -180,6 +180,26 @@ func (pm PluginManager) GetFile(ds DataSource, path int) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
+func (pm PluginManager) GetFileByName(dataSourceName string, path int) ([]byte, error) {
+	ds, err := findDs(dataSourceName, pm.payload.Inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := getSession[FileDataStore](&pm, ds.StoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	reader, err := store.Get(ds.Paths[path])
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.ReadFrom(reader)
+	return buf.Bytes(), err
+}
+
 func (pm PluginManager) PutFile(data []byte, ds DataSource, path int) error {
 	store, err := getSession[FileDataStore](&pm, ds.StoreName)
 	if err != nil {
