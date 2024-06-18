@@ -24,14 +24,14 @@ type DataSource struct {
 */
 
 type DataStore struct {
-	Name      string
-	ID        *uuid.UUID
-	StoreType StoreType
-	DsProfile string
-	//Parameters map[string]string
-	Parameters PayloadAttributes
-	Session    interface{}
+	Name       string            `json:"name" yaml:"name"`
+	ID         *uuid.UUID        `json:"id,omitempty" yaml:id omitempty`
+	StoreType  StoreType         `json:"store_type" yaml:"store_type"`
+	DsProfile  string            `json:"profile,omitempty" yaml:"profile"`
+	Parameters PayloadAttributes `json:"params,omitempty" yaml:"params"`
+	Session    any               `json:"-" yaml:"-"` //reference to the actual connection native to the data store
 }
+
 type FileDataStore interface {
 	Copy(destStore FileDataStore, srcpath string, destpath string) error
 	Get(path string) (io.ReadCloser, error)
@@ -40,9 +40,9 @@ type FileDataStore interface {
 }
 
 type DataSource struct {
-	Name      string
-	ID        *uuid.UUID
-	Paths     []string
-	DataPaths []string
-	StoreName string
+	Name      string     `json:"name" yaml:"name"`
+	ID        *uuid.UUID `json:"id,omitempty" yaml:id omitempty`
+	Paths     []string   `json:"paths" yaml:"paths"`
+	DataPaths []string   `json:"data_paths" yaml:"data_paths"`
+	StoreName string     `json:"store_name" yaml:"store_name"`
 }
