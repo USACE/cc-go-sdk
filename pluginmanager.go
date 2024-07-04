@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	CcPayloadId         = "CC_PAYLOAD_ID"
-	CcManifestId        = "CC_MANIFEST_ID"
-	CcEventNumber       = "CC_EVENT_NUMBER"
-	CcEventID           = "CC_EVENT_ID"
+	CcPayloadId   = "CC_PAYLOAD_ID"
+	CcManifestId  = "CC_MANIFEST_ID"
+	CcEventNumber = "CC_EVENT_NUMBER"
+	//CcEventID           = "CC_EVENT_ID"
 	CcPluginDefinition  = "CC_PLUGIN_DEFINITION"
 	CcProfile           = "CC"
 	CcPayloadFormatted  = "CC_PAYLOAD_FORMATTED"

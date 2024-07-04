@@ -6,11 +6,67 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cast"
 )
 
+type IOManager struct {
+	Attributes PayloadAttributes `json:"attributes,omitempty"`
+	Stores     []DataStore       `json:"stores"`
+	Inputs     []DataSource      `json:"inputs"`
+	Outputs    []DataSource      `json:"outputs"`
+}
+
+type PayloadV2 struct {
+	IOManager
+	Actions []Action
+}
+
+type Actionv2 struct {
+	IOManager
+	Type        string `json:"type"`
+	Description string `json:"desc"`
+}
+
+/*
+
+payloadstuff
+ - CopyToLocal ..etc
+
+
+iomanager
+ - Getenv(name string)
+ - Parameters()
+ - FileManagement
+	- CopyToLocal
+	- CopyToRemote
+ - DataSources
+	- GetDataSource(type DataSourceType, name string)  ..e.g. input vs output
+	- GetDataSources(type DatasourceType)
+ - DataSource
+	- Reader()
+	- Writer()
+	- Get() --[]byte
+	- Put() --[]type
+ - Stores
+	- GetStore(name string)
+
+
+plugindmanager
+ - IOManager()
+ - Action(name string) (Action,error)
+ - Actions() []Actions
+ - EventNumber
+
+actions
+ - IOManager()
+
+
+
+*/
+
 type Action struct {
-	Name        string            `json:"name"`
+	Name        string            `json:"name"` //@Depricate
 	Type        string            `json:"type,omitempty"`
 	Description string            `json:"desc"`
 	Parameters  PayloadAttributes `json:"params"`
@@ -90,8 +146,20 @@ func (p PayloadAttributes) GetStringOrDefault(name string, defaultVal string) st
 	return GetOrDefault[string](p, name, defaultVal)
 }
 
+func (p PayloadAttributes) GetMap(name string) (map[string]any, error) {
+	return GetAttribute[map[string]any](p, name)
+}
+
+func (p PayloadAttributes) Decode(name string, dest any) error {
+	attrmap, err := GetAttribute[map[string]any](p, name)
+	if err != nil {
+		return err
+	}
+	return mapstructure.Decode(attrmap, &dest)
+}
+
 type PayloadAttributeTypes interface {
-	int64 | int32 | int | float64 | string | bool
+	int64 | int32 | int | float64 | string | bool | map[string]any
 }
 
 func GetOrFail[T PayloadAttributeTypes](pa PayloadAttributes, attr string) T {
@@ -137,6 +205,10 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 			f, err := cast.ToFloat64E(attr)
 			tve.Set(reflect.ValueOf(f))
 			return t, err
+		case reflect.Map:
+			i := cast.ToStringMap(attr)
+			tve.Set(reflect.ValueOf(i))
+			return t, nil
 		default:
 			return t, errors.New("Unsupported type for cast")
 		}

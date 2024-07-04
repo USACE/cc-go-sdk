@@ -1,0 +1,6 @@
+go 1.20
+
+use (
+.
+/Users/rdcrlrsg/Projects/programming/go/src/github.com/usace/filesapi
+)
