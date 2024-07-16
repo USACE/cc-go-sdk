@@ -50,17 +50,16 @@ func (s3ds *S3DataStore) Delete(path string) error {
 	return s3ds.Delete(s3ds.root + "/" + path)
 }
 
-func (s3ds *S3DataStore) Session() filestore.FileStore {
+func (s3ds *S3DataStore) RawSession() filestore.FileStore {
 	return s3ds.fs
 }
 
-func NewS3DataStore(ds DataStore) (FileDataStore, error) {
+func (s3ds *S3DataStore) Connect(ds DataStore) (any, error) {
 	awsconfig := buildS3Config(ds.DsProfile)
 	fs, err := filestore.NewFileStore(awsconfig)
 	if err != nil {
 		return nil, err
 	}
-
 	if root, ok := ds.Parameters[S3ROOT]; ok {
 		if rootstr, ok := root.(string); ok {
 			return &S3DataStore{fs, rootstr}, nil

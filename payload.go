@@ -3,12 +3,28 @@ package cc
 import (
 	"errors"
 	"fmt"
-	"log"
-	"reflect"
-
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/cast"
+	"io"
+	"os"
 )
+
+type DataSourceIoType string
+
+const (
+	DataSourceInput  DataSourceIoType = "INPUT"
+	DataSourceOutput DataSourceIoType = "OUTPUT"
+	DataSourceAll    DataSourceIoType = "" //zero value == all
+)
+
+type Payload struct {
+	IOManager
+	Actions []Action
+}
+
+type Action struct {
+	IOManager
+	Type        string `json:"type"`
+	Description string `json:"desc"`
+}
 
 type IOManager struct {
 	Attributes PayloadAttributes `json:"attributes,omitempty"`
@@ -17,209 +33,75 @@ type IOManager struct {
 	Outputs    []DataSource      `json:"outputs"`
 }
 
-type PayloadV2 struct {
-	IOManager
-	Actions []Action
+type GetDsInput struct {
+	DsIoType DataSourceIoType
+	DsName   string
 }
 
-type Actionv2 struct {
-	IOManager
-	Type        string `json:"type"`
-	Description string `json:"desc"`
-}
-
-/*
-
-payloadstuff
- - CopyToLocal ..etc
-
-
-iomanager
- - Getenv(name string)
- - Parameters()
- - FileManagement
-	- CopyToLocal
-	- CopyToRemote
- - DataSources
-	- GetDataSource(type DataSourceType, name string)  ..e.g. input vs output
-	- GetDataSources(type DatasourceType)
- - DataSource
-	- Reader()
-	- Writer()
-	- Get() --[]byte
-	- Put() --[]type
- - Stores
-	- GetStore(name string)
-
-
-plugindmanager
- - IOManager()
- - Action(name string) (Action,error)
- - Actions() []Actions
- - EventNumber
-
-actions
- - IOManager()
-
-
-
-*/
-
-type Action struct {
-	Name        string            `json:"name"` //@Depricate
-	Type        string            `json:"type,omitempty"`
-	Description string            `json:"desc"`
-	Parameters  PayloadAttributes `json:"params"`
-}
-
-type Payload struct {
-	Attributes PayloadAttributes `json:"attributes,omitempty"`
-	Stores     []DataStore       `json:"stores"`
-	Inputs     []DataSource      `json:"inputs"`
-	Outputs    []DataSource      `json:"outputs"`
-	Actions    []Action          `json:"actions"`
-}
-
-type PayloadAttributes map[string]any
-
-func (p PayloadAttributes) GetInt(name string) (int, error) {
-	return GetAttribute[int](p, name)
-}
-
-func (p PayloadAttributes) GetIntOrFail(name string) int {
-	return GetOrFail[int](p, name)
-}
-
-func (p PayloadAttributes) GetIntOrDefault(name string, defaultValue int) int {
-	return GetOrDefault[int](p, name, defaultValue)
-}
-
-func (p PayloadAttributes) GetInt64(name string) (int64, error) {
-	return GetAttribute[int64](p, name)
-}
-
-func (p PayloadAttributes) GetInt64OrFail(name string) int64 {
-	return GetOrFail[int64](p, name)
-}
-
-func (p PayloadAttributes) GetInt64OrDefault(name string, defaultValue int64) int64 {
-	return GetOrDefault[int64](p, name, defaultValue)
-}
-
-func (p PayloadAttributes) GetFloat(name string) (float64, error) {
-	return GetAttribute[float64](p, name)
-}
-
-func (p PayloadAttributes) GetFloatOrFail(name string) float64 {
-	return GetOrFail[float64](p, name)
-}
-
-func (p PayloadAttributes) GetFloatOrDefault(name string, defaultValue float64) float64 {
-	return GetOrDefault[float64](p, name, defaultValue)
-}
-
-func (p PayloadAttributes) GetFloatSlice(name string) ([]float64, error) {
-	vals, ok := p[name]
-	if !ok {
-		return nil, fmt.Errorf("Invalid value for %s\n", name)
+func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
+	sources := []DataSource{}
+	switch input.DsIoType {
+	case DataSourceInput:
+		sources = im.Inputs
+	case DataSourceOutput:
+		sources = im.Outputs
+	case DataSourceAll:
+		sources = append(sources, im.Inputs...)
+		sources = append(sources, im.Outputs...)
 	}
-	return Slice2Type[float64](vals.([]any)), nil
-}
-
-func (p PayloadAttributes) GetString(name string) (string, error) {
-	return GetAttribute[string](p, name)
-}
-
-func (p PayloadAttributes) GetStringSlice(name string) ([]string, error) {
-	vals, ok := p[name]
-	if !ok {
-		return nil, fmt.Errorf("Invalid value for %s\n", name)
+	for _, ds := range sources {
+		if input.DsName == ds.Name {
+			return ds, nil
+		}
 	}
-	return Slice2Type[string](vals.([]any)), nil
+	return DataSource{}, errors.New(fmt.Sprintf("Data source %s not found", input.DsName))
 }
 
-func (p PayloadAttributes) GetStringOrFail(name string) string {
-	return GetOrFail[string](p, name)
-}
-
-func (p PayloadAttributes) GetStringOrDefault(name string, defaultVal string) string {
-	return GetOrDefault[string](p, name, defaultVal)
-}
-
-func (p PayloadAttributes) GetMap(name string) (map[string]any, error) {
-	return GetAttribute[map[string]any](p, name)
-}
-
-func (p PayloadAttributes) Decode(name string, dest any) error {
-	attrmap, err := GetAttribute[map[string]any](p, name)
+func (im *IOManager) CopyFileToLocal(dsName string, pathkey string, localPath string) error {
+	ds, err := im.GetDataSource(GetDsInput{DataSourceInput, dsName})
 	if err != nil {
 		return err
 	}
-	return mapstructure.Decode(attrmap, &dest)
-}
-
-type PayloadAttributeTypes interface {
-	int64 | int32 | int | float64 | string | bool | map[string]any
-}
-
-func GetOrFail[T PayloadAttributeTypes](pa PayloadAttributes, attr string) T {
-	val, err := GetAttribute[T](pa, attr)
+	reader, err := im.fileReader(ds, pathkey)
 	if err != nil {
-		log.Fatalf("Invalid value for %v\n", err)
+		return err
 	}
-	return val
-}
+	defer reader.Close()
 
-func GetOrDefault[T PayloadAttributeTypes](pa PayloadAttributes, attr string, defaultVal T) T {
-	val, err := GetAttribute[T](pa, attr)
+	writer, err := os.Create(localPath)
 	if err != nil {
-		val = defaultVal
-		log.Printf("Invalid value for %v. Using default of: %v\n", err, defaultVal)
+		return err
 	}
-	return val
+	defer writer.Close()
+	_, err = io.Copy(writer, reader)
+	return err
 }
 
-func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T, error) {
-	var t T
-	if attr, ok := pa[name]; ok {
-		tve := reflect.ValueOf(&t).Elem()
-		tk := tve.Kind()
-		switch tk {
-		case reflect.Int64:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(i))
-			return t, err
-		case reflect.Int:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(int(i)))
-			return t, err
-		case reflect.Int32:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(int32(i)))
-			return t, err
-		case reflect.String:
-			s, err := cast.ToStringE(attr)
-			tve.Set(reflect.ValueOf(s))
-			return t, err
-		case reflect.Float64:
-			f, err := cast.ToFloat64E(attr)
-			tve.Set(reflect.ValueOf(f))
-			return t, err
-		case reflect.Map:
-			i := cast.ToStringMap(attr)
-			tve.Set(reflect.ValueOf(i))
-			return t, nil
-		default:
-			return t, errors.New("Unsupported type for cast")
-		}
+func (im *IOManager) CopyFileToRemote(dsDestName string, pathkey string, localPath string) error {
+	ds, err := im.GetDataSource(GetDsInput{DataSourceOutput, dsDestName})
+	if err != nil {
+		return err
 	}
-	return t, errors.New(fmt.Sprintf("Attribute %s is not in the payload\n", name))
+	store, err := GetStoreSession[FileDataStore](im, ds.StoreName)
+	if err != nil {
+		return err
+	}
+
+	reader, err := os.Open(localPath)
+	if err != nil {
+		return err
+	}
+
+	return store.Put(reader, localPath)
 }
 
-func Slice2Type[T any](input []any) []T {
-	out := make([]T, len(input))
-	for i, v := range input {
-		out[i] = v.(T)
+func (im *IOManager) fileReader(ds DataSource, pathkey string) (io.ReadCloser, error) {
+	store, err := GetStoreSession[FileDataStore](im, ds.StoreName)
+	if err != nil {
+		return nil, err
 	}
-	return out
+
+	reader, err := store.Get(ds.Paths[pathkey])
+
+	return reader, err
 }

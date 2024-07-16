@@ -1,0 +1,88 @@
+
+/*
+    * switch pathIndex to map 
+*/
+
+----------Data Store Notes----------
+DataStoreTypeRegistry
+ - list of DataStore types that are initialized with the plugin manager
+
+DataStore struct
+ - Session==preferred abstraction for datastore
+   - for example FileDataStore for a S3DataStore
+
+ - FileDataStore: interface for simple plugin manager access for file type data sources
+   - Copy(destStore FileDataStore, srcpath string, destpath string) error
+   - Get(path string) (io.ReadCloser, error)
+   - Put(reader io.Reader, path string) error
+   - Delete(path string) error
+
+ - ConnectionDataStore: interface for DataStores that must initialize and external connection
+   - Connect(ds DataStore) (any, error)
+   - RawSession() any  //filesapi.FileStore for an S3 instance
+
+-----------------------------------
+
+Payload
+  - IOManager
+  - Actions []Action
+
+Action
+  - IOManager
+  - Type string
+  - Description string
+
+
+IOManager
+  - Methods
+   - GetDataSource(GetDsInput) (DataSource,error)
+   - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
+   - CopyFileToRemote(localPath, destDataSource, pathkey)
+   - GetReader(dataSourceName,pathName,dataPathName) reader ??? how to make for non file????
+   - Write(reader,dataSourceName, pathName, dataPathName)
+   - Get(dataSourceName, pathName, dataPathName) []bytes
+   - Put(bytes,dataSourceName,pathName,ouputDataPathName)
+ 
+   - GetStore(name)
+
+ - Attributes
+   - Attributes
+   - Stores
+   - Inputs
+   - Outputs
+
+//utility
+GetStoreAs[storeInterface](DataStores, name)
+
+
+PluginManager
+  - initialize
+  - ReportProgress(message string, value int)
+
+  - SendMessage(message SendMessageInput) (SendMessageOutput,error)
+  - Log()
+  - WriteToEventStore(EventStoreInput input) OnErrorResumeNext
+    - scalars, arrays (matrix), compound data types, key/value 
+
+
+
+
+
+
+
+
+Notes for Will:
+  - ccstore interface????
+      PutObject(input PutObjectInput) error
+	  PullObject(input PullObjectInput) error
+	  GetObject(input GetObjectInput) ([]byte, error)
+	  GetPayload() (Payload, error)
+	  SetPayload(p Payload) error
+	  RootPath() string
+	  HandlesDataStoreType(datasourcetype StoreType) bool
+  - error.go //why replace native error types?
+  - logger.go //Will wrap golang logger for implementation.  Am going to rewrite and use log vs printf
+  - status.go?
+    - think this gets removed.  Status is fuction of cloud dompute and I cazn't come up with a good reason to have this.
+    - internal progress is a function of Logging/Messaging
+  
