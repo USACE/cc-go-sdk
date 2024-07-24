@@ -141,6 +141,22 @@ func (pm *PluginManager) substitutePathVariables() error {
 
 	for _, action := range pm.Actions {
 		pm.substituteMapVariables(action.Attributes)
+
+		for i, ds := range action.Inputs {
+			err := pathsSubstitute(&ds, pm.Attributes)
+			if err != nil {
+				return err
+			}
+			action.Inputs[i] = ds
+		}
+
+		for i, ds := range action.Outputs {
+			err := pathsSubstitute(&ds, pm.Attributes)
+			if err != nil {
+				return err
+			}
+			action.Outputs[i] = ds
+		}
 	}
 
 	return nil
