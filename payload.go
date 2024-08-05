@@ -33,6 +33,15 @@ type IOManager struct {
 	Outputs    []DataSource      `json:"outputs"`
 }
 
+func (im *IOManager) GetStore(name string) (*DataStore, error) {
+	for _, store := range im.Stores {
+		if store.Name == name {
+			return &store, nil
+		}
+	}
+	return nil, errors.New("Invalid store name")
+}
+
 type GetDsInput struct {
 	DsIoType DataSourceIoType
 	DsName   string

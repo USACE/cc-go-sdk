@@ -10,12 +10,12 @@ import (
 type DataStoreTypeRegistryMap map[StoreType]reflect.Type
 
 func (registry DataStoreTypeRegistryMap) Register(storeType StoreType, storeInstance any) {
-	registry[storeType] = reflect.TypeOf(storeInstance).Elem()
+	registry[storeType] = reflect.TypeOf(storeInstance)
 }
 
 func (registry DataStoreTypeRegistryMap) New(storeType StoreType) any {
 	s3Value := reflect.New(registry[storeType])
-	return s3Value.Elem().Interface()
+	return s3Value.Elem().Addr().Interface()
 }
 
 var DataStoreTypeRegistry = make(DataStoreTypeRegistryMap)

@@ -50,7 +50,7 @@ func (s3ds *S3DataStore) Delete(path string) error {
 	return s3ds.Delete(s3ds.root + "/" + path)
 }
 
-func (s3ds *S3DataStore) RawSession() filestore.FileStore {
+func (s3ds *S3DataStore) RawSession() any {
 	return s3ds.fs
 }
 

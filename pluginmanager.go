@@ -49,6 +49,7 @@ func InitPluginManagerWithConfig(config PluginManagerConfig) (*PluginManager, er
 }
 
 func InitPluginManager() (*PluginManager, error) {
+	registerStoreTypes()
 	rx, _ = regexp.Compile(substitutionRegex)
 	var manager PluginManager
 	sender := os.Getenv(CcPluginDefinition) //@TODO what is this used for?
@@ -76,14 +77,14 @@ func InitPluginManager() (*PluginManager, error) {
 	} else {
 		manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
 		manager.Actions = payload.Actions
-		for _, ds := range manager.Stores {
+		for i, ds := range manager.Stores {
 			newInstance := DataStoreTypeRegistry.New(ds.StoreType)
 			if cds, ok := newInstance.(ConnectionDataStore); ok {
 				conn, err := cds.Connect(ds)
 				if err != nil {
 					return nil, err
 				}
-				ds.Session = conn
+				manager.Stores[i].Session = conn
 			}
 		}
 	}
