@@ -2,7 +2,7 @@ package cc
 
 const (
 	localRootPath   = "/data"
-	remoteRootPath  = "/cc_store"
+	remoteRootPath  = "/cc-store"
 	payloadFileName = "payload"
 )
 
