@@ -17,13 +17,13 @@ const (
 
 type Payload struct {
 	IOManager
-	Actions []Action
+	Actions []Action `json:"actions"`
 }
 
 type Action struct {
 	IOManager
 	Type        string `json:"type"`
-	Description string `json:"desc"`
+	Description string `json:"description"`
 }
 
 type IOManager struct {
