@@ -35,16 +35,27 @@ type DataStore struct {
 
 type ConnectionDataStore interface {
 	Connect(ds DataStore) (any, error)
-	RawSession() any
-}
-type FileDataStore interface {
-	Copy(destStore FileDataStore, srcpath string, destpath string) error
-	Get(path string) (io.ReadCloser, error)
-	Put(reader io.Reader, path string) error
-	Delete(path string) error
+	GetSession() any
 }
 
-// Reference to a specific resourc in a DataStore FILE, DB, etc
+type StoreReader interface {
+	Get(path string, datapath string) (io.ReadCloser, error)
+}
+
+type StoreWriter interface {
+	Put(srcReader io.Reader, destPath string, destDataPath string) (int, error)
+}
+
+/*
+type FileDataStore interface {
+	Copy(destStore FileDataStore, srcpath string, destpath string) error
+	Get(path string, datapath string) (io.ReadCloser, error)
+	Put(srcReader io.Reader, destPath string) error
+	Delete(path string, datapath string) error
+}
+*/
+
+// Reference to a specific resource in a DataStore FILE, DB, etc
 // The credential attribute is the credential prefix
 // used to identify credentials in the environment.
 // For example "MODEL_LIBRARY" would match "MODEL_LIBRARY_AWS_ACCESS_KEY_ID"

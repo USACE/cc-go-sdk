@@ -17,6 +17,7 @@ const (
 	CcProfile           = "CC"
 	CcPayloadFormatted  = "CC_PAYLOAD_FORMATTED"
 	CcRootPath          = "CC_ROOT"
+	CcLogIdentifier     = "CC_LOG"
 	AwsAccessKeyId      = "AWS_ACCESS_KEY_ID"
 	AwsSecretAccessKey  = "AWS_SECRET_ACCESS_KEY"
 	AwsDefaultRegion    = "AWS_DEFAULT_REGION"
@@ -105,20 +106,6 @@ func (pm PluginManager) EventNumber() int {
 		eventNumber = -1
 	}
 	return eventNumber
-}
-
-func GetStoreSession[T any](mgr *IOManager, name string) (T, error) {
-	for _, s := range mgr.Stores {
-		if s.Name == name {
-			if t, ok := s.Session.(T); ok {
-				return t, nil
-			} else {
-				return t, errors.New("Invalid Store Type")
-			}
-		}
-	}
-	var t T
-	return t, errors.New(fmt.Sprintf("Session %s does not exist.\n", name))
 }
 
 // -----------------------------------------------
@@ -229,10 +216,6 @@ func parameterSubstitute(param interface{}, payloadAttr map[string]any) (string,
 }
 
 /*
-func (pm PluginManager) GetFileStore(name string) (FileDataStore, error) {
-	return GetStoreSession[FileDataStore](&pm.IOManager, name)
-}
-
 func (pm PluginManager) GetFile(ds DataSource, path int) ([]byte, error) {
 	store, err := GetStoreSession[FileDataStore](&pm, ds.StoreName)
 	if err != nil {

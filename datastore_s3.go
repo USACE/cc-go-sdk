@@ -3,6 +3,7 @@ package cc
 import (
 	"errors"
 	"io"
+	"log"
 
 	filestore "github.com/usace/filesapi"
 )
@@ -16,6 +17,7 @@ type S3DataStore struct {
 	root string
 }
 
+/*
 func (s3ds *S3DataStore) Copy(destStore FileDataStore, srcpath string, destpath string) error {
 	fsgoi := filestore.GetObjectInput{
 		Path: filestore.PathConfig{Path: srcpath},
@@ -26,8 +28,10 @@ func (s3ds *S3DataStore) Copy(destStore FileDataStore, srcpath string, destpath 
 	}
 	return destStore.Put(reader, destpath)
 }
+*/
 
-func (s3ds *S3DataStore) Get(path string) (io.ReadCloser, error) {
+func (s3ds *S3DataStore) Get(path string, datapath string) (io.ReadCloser, error) {
+	log.Println("S3 Datastore does not use the datapath.  It will be ignored")
 	fsgoi := filestore.GetObjectInput{
 		Path: filestore.PathConfig{Path: s3ds.root + "/" + path},
 	}
@@ -35,22 +39,24 @@ func (s3ds *S3DataStore) Get(path string) (io.ReadCloser, error) {
 	return s3ds.fs.GetObject(fsgoi)
 }
 
-func (s3ds *S3DataStore) Put(reader io.Reader, path string) error {
+func (s3ds *S3DataStore) Put(reader io.Reader, path string, destDataPath string) (int, error) {
 	poi := filestore.PutObjectInput{
 		Source: filestore.ObjectSource{
 			Reader: reader,
 		},
 		Dest: filestore.PathConfig{Path: s3ds.root + "/" + path},
 	}
+	//@TODO fix the bytes transferred int
 	_, err := s3ds.fs.PutObject(poi)
-	return err
+
+	return -1, err
 }
 
 func (s3ds *S3DataStore) Delete(path string) error {
 	return s3ds.Delete(s3ds.root + "/" + path)
 }
 
-func (s3ds *S3DataStore) RawSession() any {
+func (s3ds *S3DataStore) GetSession() any {
 	return s3ds.fs
 }
 

@@ -11,11 +11,13 @@ DataStore struct
  - Session==preferred abstraction for datastore
    - for example FileDataStore for a S3DataStore
 
- - FileDataStore: interface for simple plugin manager access for file type data sources
-   - Copy(destStore FileDataStore, srcpath string, destpath string) error
-   - Get(path string) (io.ReadCloser, error)
-   - Put(reader io.Reader, path string) error
-   - Delete(path string) error
+ - StoreReader interface
+     Get(path string, datapath string) (io.ReadCloser, error)
+
+ - StoreWriter interface 
+	    Put(srcReader io.Reader, destPath string, destDataPath string) (int, error)
+
+
 
  - ConnectionDataStore: interface for DataStores that must initialize and external connection
    - Connect(ds DataStore) (any, error)
@@ -36,13 +38,15 @@ Action
 IOManager
   - Methods
    - GetDataSource(GetDsInput) (DataSource,error)
-   - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
-   - CopyFileToRemote(localPath, destDataSource, pathkey)
-   - GetReader(dataSourceName,pathName,dataPathName) reader ??? how to make for non file????
-   - Write(reader,dataSourceName, pathName, dataPathName)
+   - GetInputDataSource
+   - GetOutputDataSource
+   - GetReader(dataSourceName,pathName,dataPathName) reader 
    - Get(dataSourceName, pathName, dataPathName) []bytes
    - Put(bytes,dataSourceName,pathName,ouputDataPathName)
- 
+   //- Write(reader,dataSourceName, pathName, dataPathName)
+   - Copy
+   - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
+   - CopyFileToRemote(localPath, destDataSource, pathkey)
    - GetStore(name)
 
  - Attributes
@@ -57,16 +61,33 @@ GetStoreAs[storeInterface](DataStores, name)
 
 PluginManager
   - initialize
-  - ReportProgress(message string, value int)
-
+    - set log format for each language
   - SendMessage(message SendMessageInput) (SendMessageOutput,error)
-  - Log()
   - WriteToEventStore(EventStoreInput input) OnErrorResumeNext
     - scalars, arrays (matrix), compound data types, key/value 
 
 
+  //EventStoreMethods
+    - Put
+    - Get
 
+onInit:
+ - Log ComputeID, EventID, ManifestId
+ - Log PayloadID
 
+{cc-log} {date} {time} {log-type} {log}
+{cc-log} {date} {time} {log-type} {log}
+
+ - log-types
+      INFO
+      ACTION
+  
+
+pm.GetFileByName(name,path)   ([]byte,error)
+pm.FileReaderbyName(name,path) (reader,error)
+
+should we have DataSource functions in addition to DataStore functions?
+should they just be pass through?
 
 
 
