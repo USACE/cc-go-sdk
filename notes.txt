@@ -67,9 +67,17 @@ PluginManager
     - scalars, arrays (matrix), compound data types, key/value 
 
 
-  //EventStoreMethods
-    - Put
-    - Get
+  //EventStoreInterface
+    - WriteArray()
+    - ReadArray()
+    - WriteMatrix()
+    - ReadMatrix()
+
+    type ReadMatrixInput struct{
+      DataType:?
+      Buffer:
+      DataPath:
+    }
 
 onInit:
  - Log ComputeID, EventID, ManifestId
@@ -106,4 +114,23 @@ Notes for Will:
   - status.go?
     - think this gets removed.  Status is fuction of cloud dompute and I cazn't come up with a good reason to have this.
     - internal progress is a function of Logging/Messaging
+
+
+
+EventStore
+  - WriteArray
+  - ReadArray
+  - WriteMatrix
+  - ReadMatrix
+  - WriteAttribute(name, value)
+
+  - need compound data type....
+
+
+* can dense array use string domain notation?
+
+
+
+
+
   

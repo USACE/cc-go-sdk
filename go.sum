@@ -1,3 +1,5 @@
+github.com/TileDB-Inc/TileDB-Go v0.21.0 h1:zgYt0Yhxyg/He3mqfhXthPmc5ZmHLfWeFq6geiyk9pc=
+github.com/TileDB-Inc/TileDB-Go v0.21.0/go.mod h1:HfdsUdPqQrevjQG79fi0v4liSaeQITIYhny3N1REzG8=
 github.com/TileDB-Inc/TileDB-Go v0.31.0 h1:dxaz4NvEHSlw/IedVe2i0n9OjbVvku7Kgr//rEEevB0=
 github.com/TileDB-Inc/TileDB-Go v0.31.0/go.mod h1:Lrs/upPea9DbllwvZtkd8m3xhLZO/Xg5wcV+Q2LLQUI=
 github.com/aws/aws-sdk-go-v2 v1.24.1 h1:xAojnj+ktS95YZlDf0zxWBkbFtymPeDP+rvUQIH3uAU=
