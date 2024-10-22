@@ -25,14 +25,9 @@ type CcEventStore interface {
 	CreateArray(input CreateArrayInput) error
 	PutArray(input WriteArrayInput) error
 	GetArray(input ReadArrayInput) error
-	//PutMatrix(input WriteMatrixInput) error
 	PutMetadata(key string, val any) error
-	GetMetadata(key string) (any, error)
-	GetMetadata2(key string, dest any) error
-	//WriteMatrix()
-	//ReadMatrix()
-	//WriteKVP()
-	//ReadKVP()
+	GetMetadata(key string, dest any) error
+	DeleteMetadata(key string) error
 }
 
 /*
@@ -76,26 +71,13 @@ type WriteBuffer struct {
 	Offsets  []uint64
 }
 
-type WriteArrayInput2 struct {
-	Buffer any
-	Size   int64
-	//BufferRange DataRange
-	DataPath  string
-	ArrayType ARRAY_TYPE
-}
-
-type WriteMatrixInput struct {
-	Buffer any
-	//BufferRange DataRange
-	DataPath  string
-	ArrayType ARRAY_TYPE
-}
-
 type ReadArrayInput struct {
-	Buffer any
-	//DataRange DataRange
+	Attrs       []string
 	DataPath    string
-	Size        int
 	BufferRange []int32
-	AttrName    string
+}
+
+type ReadBuffer struct {
+	AttrName string
+	Buffer   any
 }

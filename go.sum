@@ -1,7 +1,11 @@
+github.com/TileDB-Inc/TileDB-Go v0.14.0 h1:yLXgkr+HlsoXtr91mlvA/j1/DHDrqnu3sXndbJlhwIc=
+github.com/TileDB-Inc/TileDB-Go v0.14.0/go.mod h1:MHamWFYsoNQZLxA2JIbyfX/t8gA9dnOx52WQoYWV7Dk=
 github.com/TileDB-Inc/TileDB-Go v0.21.0 h1:zgYt0Yhxyg/He3mqfhXthPmc5ZmHLfWeFq6geiyk9pc=
 github.com/TileDB-Inc/TileDB-Go v0.21.0/go.mod h1:HfdsUdPqQrevjQG79fi0v4liSaeQITIYhny3N1REzG8=
 github.com/TileDB-Inc/TileDB-Go v0.31.0 h1:dxaz4NvEHSlw/IedVe2i0n9OjbVvku7Kgr//rEEevB0=
 github.com/TileDB-Inc/TileDB-Go v0.31.0/go.mod h1:Lrs/upPea9DbllwvZtkd8m3xhLZO/Xg5wcV+Q2LLQUI=
+github.com/TileDB-Inc/TileDB-Go v0.32.0 h1:LdKa4SlBTN8HgUXRvgQCe9AM5/fMjQBWxkK4LeCw/uU=
+github.com/TileDB-Inc/TileDB-Go v0.32.0/go.mod h1:Lrs/upPea9DbllwvZtkd8m3xhLZO/Xg5wcV+Q2LLQUI=
 github.com/aws/aws-sdk-go-v2 v1.24.1 h1:xAojnj+ktS95YZlDf0zxWBkbFtymPeDP+rvUQIH3uAU=
 github.com/aws/aws-sdk-go-v2 v1.24.1/go.mod h1:LNh45Br1YAkEKaAqvmE1m8FUx6a5b/V0oAKV7of29b4=
 github.com/aws/aws-sdk-go-v2 v1.26.1 h1:5554eUqIYVWpU0YmeeYZ0wU64H2VLBs8TlhRB2L+EkA=
@@ -102,6 +106,7 @@ github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZV
 github.com/spf13/cast v1.6.0 h1:GEiTHELF+vaR5dhz3VqZfFSzZjYbgeKDpBxQVS4GYJ0=
 github.com/spf13/cast v1.6.0/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cAdo=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/usace/filesapi v0.0.0-20240105190612-7968d4f3fe61 h1:5XBnZbJhmbRfBfhUqMzqkRIOkzbEp6MhDKsj7SK7tIk=
 github.com/usace/filesapi v0.0.0-20240105190612-7968d4f3fe61/go.mod h1:n93SV2TkqTZQvaxEmraFCSMUDTbPVyc2uc8q+UTp9Q8=
 github.com/usace/filesapi v0.0.0-20240315200543-841da1a812a3 h1:P7gZPn+X0+qacIxzA+MRyDtzAN2kMopWKYWfytvt2iw=
@@ -115,3 +120,4 @@ go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2/go.mod h1:
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=
 gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=

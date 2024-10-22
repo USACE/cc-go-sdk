@@ -61,7 +61,7 @@ func (s3ds *S3DataStore) GetSession() any {
 }
 
 func (s3ds *S3DataStore) Connect(ds DataStore) (any, error) {
-	awsconfig := buildS3Config(ds.DsProfile)
+	awsconfig := BuildS3Config(ds.DsProfile)
 	fs, err := filestore.NewFileStore(awsconfig)
 	if err != nil {
 		return nil, err
