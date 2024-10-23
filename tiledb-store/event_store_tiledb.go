@@ -162,7 +162,6 @@ func (tdb *TileDbEventStore) PutArray(input WriteArrayInput) error {
 		}
 
 		if buffer.Offsets != nil {
-			//_, err = query.SetDataBuffer(buffer.AttrName, buffer.Buffer)
 			_, err = query.SetOffsetsBuffer(buffer.AttrName, buffer.Offsets)
 			if err != nil {
 				return err
@@ -192,77 +191,101 @@ func (tdb *TileDbEventStore) PutArray(input WriteArrayInput) error {
 	return nil
 }
 
-func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) error {
+func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) (*ArrayResult, error) {
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.DataPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = array.Open(tiledb.TILEDB_READ)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	query, err := tiledb.NewQuery(tdb.context, array)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	subarray, err := array.NewSubarray()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = subarray.SetSubArray(input.BufferRange)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	//////////
+	rn, _ := subarray.GetRanges()
+	for _, rng := range rn {
+		fmt.Println(rng)
+	}
+	fmt.Println(rn)
+	//////////
 
 	err = query.SetSubarray(subarray)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = query.SetLayout(tiledb.TILEDB_ROW_MAJOR)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	bufferElems, err := query.EstimateBufferElements()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	schema, err := getArraySchema(*array)
+	if err != nil {
+		return nil, err
 	}
 
 	data := make([]any, len(input.Attrs))
 	offsets := make([]*[]uint64, len(input.Attrs))
 	for i, attr := range input.Attrs {
-		data[i], offsets[i] = createBuffer(attr, bufferElems, query)
+		attrtype, err := schema.GetType(attr)
+		if err != nil {
+			return nil, err
+		}
+		data[i], offsets[i] = createBuffer(attr, attrtype, bufferElems, query)
 		_, err = query.SetDataBuffer(attr, data[i])
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(*offsets[i]) > 0 {
 			_, err = query.SetOffsetsBuffer(attr, *offsets[i])
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
 	err = query.Submit()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for i := 0; i < len(data); i++ {
 		if len(*offsets[i]) > 0 {
 			vr := handleVariableResults(data[i].([]uint8), query, input.Attrs[i], *offsets[i])
 			fmt.Println(vr)
+			data[i] = vr
 		}
-
 	}
-	return nil
 
+	//rawsize:=(input.BufferRange[1]-input.BufferRange[0]+1)*(input.BufferRange[3])
+
+	return &ArrayResult{
+		Range:  input.BufferRange,
+		Data:   data,
+		Schema: schema,
+		Size:   4,
+	}, nil
 }
 
 func handleVariableResults(data []uint8, query *tiledb.Query, attr string, offsets []uint64) [][]uint8 {
@@ -286,16 +309,32 @@ func handleVariableResults(data []uint8, query *tiledb.Query, attr string, offse
 	return results
 }
 
-func createBuffer(attrName string, bufferElems map[string][3]uint64, query *tiledb.Query) (any, *[]uint64) {
+func createBuffer(attrName string, attrType ATTR_TYPE, bufferElems map[string][3]uint64, query *tiledb.Query) (any, *[]uint64) {
 	var data any
 	attrElem := bufferElems[attrName]
 	var offsets []uint64
 	if attrElem[0] == 0 {
 		//fixed length
-		data = make([]int32, attrElem[1])
+		switch attrType {
+		case ATTR_UINT8:
+			data = make([]uint8, attrElem[1])
+		case ATTR_INT8:
+			data = make([]int8, attrElem[1])
+		case ATTR_INT16:
+			data = make([]int16, attrElem[1])
+		case ATTR_INT32:
+			data = make([]int32, attrElem[1])
+		case ATTR_INT64:
+			data = make([]int64, attrElem[1])
+		case ATTR_FLOAT32:
+			data = make([]float32, attrElem[1])
+		case ATTR_FLOAT64:
+			data = make([]float64, attrElem[1])
+		}
+
 	} else {
 		//variable length
-		offsets = make([]uint64, bufferElems[attrName][0])
+		offsets = make([]uint64, attrElem[0])
 		query.SetOffsetsBuffer(attrName, offsets) //@TODO echeck and handle or return error here
 		data = make([]uint8, attrElem[0]*attrElem[1])
 	}
@@ -322,9 +361,57 @@ var ccAttr2TiledbAttrMap map[ATTR_TYPE]tiledb.Datatype = map[ATTR_TYPE]tiledb.Da
 	ATTR_STRING:  tiledb.TILEDB_STRING_ASCII,
 }
 
+func tileDbType2CcTypeLookup(value tiledb.Datatype) (ATTR_TYPE, bool) {
+	for k, v := range ccAttr2TiledbAttrMap {
+		if v == value {
+			return k, true
+		}
+	}
+	return -1, false
+}
+
+func getArraySchema(array tiledb.Array) (ArraySchema, error) {
+	ccArraySchema := ArraySchema{}
+	schema, err := array.Schema()
+	if err != nil {
+		return ccArraySchema, err
+	}
+
+	attributes, err := schema.Attributes()
+	if err != nil {
+		return ccArraySchema, err
+	}
+
+	names := make([]string, len(attributes))
+	types := make([]ATTR_TYPE, len(attributes))
+	for i, attr := range attributes {
+		name, err := attr.Name()
+		if err != nil {
+			return ccArraySchema, err
+		}
+		names[i] = name
+
+		typ, err := attr.Type()
+		if err != nil {
+			return ccArraySchema, err
+		}
+		if cctype, ok := tileDbType2CcTypeLookup(typ); ok {
+			types[i] = cctype
+		} else {
+			return ccArraySchema, errors.New("Invalid CC Event Store Type")
+		}
+
+	}
+	ccArraySchema.AttributeNames = names
+	ccArraySchema.AttributeTypes = types
+	return ccArraySchema, nil
+}
+
+/*
 func GolangType2TileDbType(buf any) tiledb.Datatype {
 	return tiledb.TILEDB_INT32
 }
+*/
 
 /*
 func ccStoreArrayType2Tiledbtype(ccArrayType ARRAY_TYPE) tiledb.ArrayType {
@@ -413,23 +500,6 @@ func (tdb *TileDbEventStore) PutMetadata(key string, val any) error {
 	defer array.Close()
 
 	return array.PutMetadata(key, val)
-}
-
-func (tdb *TileDbEventStore) GetMetadataDepricated(key string) (any, error) {
-	uri := tdb.uri + defaultMetadataPath
-	array, err := tiledb.NewArray(tdb.context, uri)
-	if err != nil {
-		return nil, err
-	}
-	err = array.Open(tiledb.TILEDB_READ)
-	if err != nil {
-		return nil, err
-	}
-	defer array.Close()
-
-	_, _, val, err := array.GetMetadata(key)
-
-	return val, err
 }
 
 func (tdb *TileDbEventStore) GetMetadata(key string, dest any) error {

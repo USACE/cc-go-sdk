@@ -23,8 +23,14 @@ func TestTileDbStoreCreateArray(t *testing.T) {
 		CreateArrayInput{
 			ArrayPath: "dataset1",
 			Attributes: []CcStoreAttr{
-				{"position", ATTR_INT32},
-				{"name", ATTR_STRING},
+				{"attr1", ATTR_UINT8},
+				{"attr2", ATTR_INT8},
+				{"attr3", ATTR_INT16},
+				{"attr4", ATTR_INT32},
+				{"attr5", ATTR_INT64},
+				{"attr6", ATTR_FLOAT32},
+				{"attr7", ATTR_FLOAT64},
+				{"attr8", ATTR_STRING},
 			},
 			Dimensions: []Dimension{
 				{
@@ -53,19 +59,42 @@ func TestTileDbStoreWriteArray(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	buffers := make([]WriteBuffer, 2)
-	buffers[0] = WriteBuffer{
-		AttrName: "position",
-		Buffer:   []int32{1, 2, 3, 4},
-	}
 
-	buffers[1] = WriteBuffer{
-		AttrName: "name",
-		Buffer:   []byte("test1tester234test456test987"),
-		Offsets:  []uint64{0, 5, 14, 21},
+	buffers := []WriteBuffer{
+		{
+			AttrName: "attr1",
+			Buffer:   []uint8{1, 2, 3, 4},
+		},
+		{
+			AttrName: "attr2",
+			Buffer:   []int8{5, 6, 7, 8},
+		},
+		{
+			AttrName: "attr3",
+			Buffer:   []int16{9, 10, 11, 12},
+		},
+		{
+			AttrName: "attr4",
+			Buffer:   []int32{13, 14, 15, 16},
+		},
+		{
+			AttrName: "attr5",
+			Buffer:   []int64{17, 18, 19, 20},
+		},
+		{
+			AttrName: "attr6",
+			Buffer:   []float32{1.1, 2.2, 3.3, 4.4},
+		},
+		{
+			AttrName: "attr7",
+			Buffer:   []float64{5.5, 6.6, 7.7, 8.8},
+		},
+		{
+			AttrName: "attr8",
+			Buffer:   []byte("test1tester234test456test987"),
+			Offsets:  []uint64{0, 5, 14, 21},
+		},
 	}
-	//buffers["Attr2"] = []int32{5, 6, 7, 8}
-	//buffers["Attr2"] = [][]byte{[]byte("a1"), []byte("b2"), []byte("c3"), []byte("d4")}
 
 	subarray := []int32{1, 2, 3, 4}
 	input := WriteArrayInput{
@@ -81,6 +110,17 @@ func TestTileDbStoreWriteArray(t *testing.T) {
 
 }
 
+type TestStruct struct {
+	Val1 uint8   `eventstore:"attr1"`
+	Val2 int8    `eventstore:"attr2"`
+	Val3 int16   `eventstore:"attr3"`
+	Val4 int32   `eventstore:"attr4"`
+	Val5 int64   `eventstore:"attr5"`
+	Val6 float32 `eventstore:"attr6"`
+	Val7 float64 `eventstore:"attr7"`
+	Val8 string  `eventstore:"attr8"`
+}
+
 func TestTileDbStoreGetArray(t *testing.T) {
 	eventPath := "sims/1"
 	eventStore, err := NewTiledbEventStore(eventPath)
@@ -91,13 +131,19 @@ func TestTileDbStoreGetArray(t *testing.T) {
 	input := ReadArrayInput{
 		DataPath:    "dataset1",
 		BufferRange: []int32{1, 2, 3, 4},
-		Attrs:       []string{"position", "name"},
+		Attrs:       []string{"attr1", "attr2", "attr3", "attr4", "attr5", "attr6", "attr7", "attr8"},
 	}
 
-	err = eventStore.GetArray(input)
+	result, err := eventStore.GetArray(input)
 	if err != nil {
 		t.Fatal(err)
 	}
+	ts := TestStruct{}
+	for i := 0; i < result.Size; i++ {
+		result.Scan(&ts)
+		fmt.Println(ts)
+	}
+	fmt.Println(result)
 
 }
 

@@ -1,5 +1,10 @@
 package cc
 
+import (
+	"fmt"
+	"reflect"
+)
+
 type ARRAY_TYPE int
 type ATTR_TYPE int
 type DIMENSION_TYPE int
@@ -19,12 +24,14 @@ const (
 	ATTR_FLOAT32 ATTR_TYPE = 5
 	ATTR_FLOAT64 ATTR_TYPE = 6
 	ATTR_STRING  ATTR_TYPE = 7
+
+	ATTR_STRUCT_TAG string = "eventstore"
 )
 
 type CcEventStore interface {
 	CreateArray(input CreateArrayInput) error
 	PutArray(input WriteArrayInput) error
-	GetArray(input ReadArrayInput) error
+	GetArray(input ReadArrayInput) (*ArrayResult, error)
 	PutMetadata(key string, val any) error
 	GetMetadata(key string, dest any) error
 	DeleteMetadata(key string) error
@@ -77,7 +84,69 @@ type ReadArrayInput struct {
 	BufferRange []int32
 }
 
-type ReadBuffer struct {
-	AttrName string
-	Buffer   any
+type ArraySchema struct {
+	AttributeNames []string
+	AttributeTypes []ATTR_TYPE
+}
+
+func (as ArraySchema) GetType(attrname string) (ATTR_TYPE, error) {
+	for i, v := range as.AttributeNames {
+		if v == attrname {
+			return as.AttributeTypes[i], nil
+		}
+	}
+	return 0, fmt.Errorf("invalid attribute name: %s", attrname)
+}
+
+//type ArraySchema map[string]ATTR_TYPE
+
+type ArrayResult struct {
+	Range  []int32
+	Data   []any
+	Schema ArraySchema
+	row    int
+	Size   int
+}
+
+func (ar *ArrayResult) Scan(val any) error {
+	attrPosMap := tagAsPositionMap(ATTR_STRUCT_TAG, val)
+	reflectVal := reflect.ValueOf(val)
+	elemVal := reflectVal.Elem()
+	for attr, pos := range attrPosMap {
+		for i, s := range ar.Schema.AttributeNames {
+			if s == attr {
+				typ := ar.Schema.AttributeTypes[i]
+				val := handleType(ar.row, typ, ar.Data[i])
+				field := elemVal.Field(pos)
+				field.Set(reflect.ValueOf(val))
+			}
+		}
+	}
+	ar.row++
+	return nil
+}
+
+func handleType(index int, attrType ATTR_TYPE, val any) any {
+	vt := reflect.TypeOf(val)
+	if vt.Kind() == reflect.Slice {
+		vs := reflect.ValueOf(val)
+		sval := vs.Index(index)
+		if attrType == ATTR_STRING {
+			return string(sval.Interface().([]uint8))
+		}
+		return sval.Interface()
+	}
+	return val
+}
+
+func tagAsPositionMap(tag string, data interface{}) map[string]int {
+	tagmap := make(map[string]int)
+	typ := reflect.TypeOf(data).Elem()
+	fieldNum := typ.NumField()
+	for i := 0; i < fieldNum; i++ {
+		if tagval, ok := typ.Field(i).Tag.Lookup(tag); ok {
+			tagmap[tagval] = i
+		}
+	}
+	return tagmap
 }
