@@ -1,7 +1,8 @@
 
-/*
-    * switch pathIndex to map 
-*/
+Store Semantics:
+ - Object Store
+ - Compute Store
+ - RDBMS Store
 
 ----------Data Store Notes----------
 DataStoreTypeRegistry
@@ -24,7 +25,30 @@ DataStore struct
    - RawSession() any  //filesapi.FileStore for an S3 instance
 
 -----------------------------------
+Datastore ComputeCache
 
+//creates a cache if it doesn't exist or opens a compute cache
+ - GetComputeCache(path string) (ComputeCache,error)
+
+//writes a scalar attribute to the cache
+- PutAttribute(key string, value ComputeCacheAttrType) error
+
+//reads a scalar attribute from the cache
+- GetAttribute(key string, dest ComputeCacheAttrType) error
+
+//write a slice to the cache
+- Put(data []any, datapath string) error
+
+//read a slice from the cache
+- Get(datapath string, dest any) error
+
+//////
+- GetCache(input DataSourceOpInput)
+   - GetCacheAttribute
+   - PutCache(input PutOpInput)
+   - PutCacheAttribute()
+
+------------------------------------
 Payload
   - IOManager
   - Actions []Action
@@ -36,24 +60,53 @@ Action
 
 
 IOManager
-  - Methods
-   - GetDataSource(GetDsInput) (DataSource,error)
-   - GetInputDataSource
-   - GetOutputDataSource
-   - GetReader(dataSourceName,pathName,dataPathName) reader 
-   - Get(dataSourceName, pathName, dataPathName) []bytes
-   - Put(bytes,dataSourceName,pathName,ouputDataPathName)
-   //- Write(reader,dataSourceName, pathName, dataPathName)
-   - Copy
-   - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
-   - CopyFileToRemote(localPath, destDataSource, pathkey)
-   - GetStore(name)
-
  - Attributes
-   - Attributes
-   - Stores
-   - Inputs
-   - Outputs
+    - Attributes
+    - Stores
+    - Inputs
+    - Outputs
+  - Methods
+    - GetDataSource(GetDsInput) (DataSource,error)
+    - GetInputDataSource
+    - GetOutputDataSource
+    - GetStore(name)
+    -> Store Type "Blob" (s3, azure blob, file systems)...default store type
+      - GetReader(input DataSourceOpInput) (io.Reader, error)
+      - Get(input DataSourceOpInput) ([]byte, error)
+      - Put(input PutOpInput) (int, error)
+      - Copy
+      - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
+      - CopyFileToRemote(localPath, destDataSource, pathkey)
+    -> Store Type "Array" (tiledb/zarr)
+      - CreateArray() error ???b//creates an array with specific schema options
+      - GetArrayReader(input) (ArrayReader, error)
+      - GetArray(input GetComputeInput, dest any) error
+      - PutArray(input PutComputInput) (int,error)
+    -> Store Type "Record" (zarr, tiledb, rdbms)
+      - CreateTable() error ??? //creates a table with schema options
+      - GetRows(input) (RowReader, error)
+      - GetRecords(input GetComputeInput, dest any) error
+      - PutRecords(input PutComputInput) (int,error)
+    -> Store Type "Attribute"
+      - GetAttr
+      - PutAttr
+      - DeleteAttr
+
+    Store Interfaces:
+     - ConnectionDataStore
+     - StoreReader
+     - StoreWriter
+     - ArrayStore
+     - RecordStore
+     - AttributeStore
+
+
+
+  
+   
+   
+
+
 
 //utility
 GetStoreAs[storeInterface](DataStores, name)

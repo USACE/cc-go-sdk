@@ -3,6 +3,7 @@ package cc
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 
@@ -15,6 +16,7 @@ import (
 const (
 	defaultAttrName     string = "a"
 	defaultMetadataPath string = "/scalars"
+	defaultTileExtent   int32  = 16
 )
 
 type TileDbEventStore struct {
@@ -22,7 +24,7 @@ type TileDbEventStore struct {
 	uri     string
 }
 
-func NewTiledbEventStore(eventPath string) (CcEventStore, error) {
+func NewTiledbEventStore(eventPath string) (*TileDbEventStore, error) {
 
 	rootPath := os.Getenv(CcRootPath)
 	if rootPath == "" {
@@ -124,6 +126,10 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 	if err = arraySchema.AddAttributes(tiledbAttrs...); err != nil {
 		return err
 	}
+	arraySchema.SetCellOrder(tiledb.TILEDB_ROW_MAJOR)
+	arraySchema.SetTileOrder(tiledb.TILEDB_ROW_MAJOR)
+	//arraySchema.SetCellOrder(tiledb.TILEDB_COL_MAJOR)
+	//arraySchema.SetTileOrder(tiledb.TILEDB_COL_MAJOR)
 
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.ArrayPath)
 	if err != nil {
@@ -134,7 +140,7 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 	return array.Create(arraySchema)
 }
 
-func (tdb *TileDbEventStore) PutArray(input WriteArrayInput) error {
+func (tdb *TileDbEventStore) PutArray(input PutArrayInput) error {
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.DataPath)
 	if err != nil {
 		return err
@@ -191,13 +197,18 @@ func (tdb *TileDbEventStore) PutArray(input WriteArrayInput) error {
 	return nil
 }
 
-func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) (*ArrayResult, error) {
+func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error) {
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.DataPath)
 	if err != nil {
 		return nil, err
 	}
 
 	err = array.Open(tiledb.TILEDB_READ)
+	if err != nil {
+		return nil, err
+	}
+
+	schema, err := getArraySchema(*array)
 	if err != nil {
 		return nil, err
 	}
@@ -212,18 +223,15 @@ func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) (*ArrayResult, error
 		return nil, err
 	}
 
-	err = subarray.SetSubArray(input.BufferRange)
+	br := input.BufferRange
+	if len(br) == 0 {
+		br = schema.Domain
+	}
+
+	err = subarray.SetSubArray(br)
 	if err != nil {
 		return nil, err
 	}
-
-	//////////
-	rn, _ := subarray.GetRanges()
-	for _, rng := range rn {
-		fmt.Println(rng)
-	}
-	fmt.Println(rn)
-	//////////
 
 	err = query.SetSubarray(subarray)
 	if err != nil {
@@ -236,11 +244,6 @@ func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) (*ArrayResult, error
 	}
 
 	bufferElems, err := query.EstimateBufferElements()
-	if err != nil {
-		return nil, err
-	}
-
-	schema, err := getArraySchema(*array)
 	if err != nil {
 		return nil, err
 	}
@@ -278,14 +281,117 @@ func (tdb *TileDbEventStore) GetArray(input ReadArrayInput) (*ArrayResult, error
 		}
 	}
 
-	//rawsize:=(input.BufferRange[1]-input.BufferRange[0]+1)*(input.BufferRange[3])
+	//size := bufferRangeSize(br)
 
 	return &ArrayResult{
-		Range:  input.BufferRange,
+		Range:  br,
 		Data:   data,
 		Schema: schema,
-		Size:   4,
+		//Size:   size,
 	}, nil
+}
+
+func GetSimpleArray() error {
+	return nil
+}
+
+func (tdb *TileDbEventStore) createSimpleArray(input CreateSimpleArrayInput) error {
+	xTileExtent := defaultTileExtent
+	if input.XDim < xTileExtent {
+		xTileExtent = input.XDim
+	}
+	yTileExtent := defaultTileExtent
+	if input.YDim < yTileExtent {
+		yTileExtent = input.YDim
+	}
+	return tdb.CreateArray(
+		CreateArrayInput{
+			ArrayPath: input.ArrayPath,
+			Attributes: []ArrayAttribute{
+				{
+					Name:     defaultAttrName,
+					DataType: input.DataType,
+				},
+			},
+			Dimensions: []ArrayDimension{
+				{
+					Name:          "Y",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int32{1, input.YDim},
+					TileExtent:    yTileExtent,
+				},
+				{
+					Name:          "X",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int32{1, input.XDim},
+					TileExtent:    xTileExtent,
+				},
+			},
+		},
+	)
+}
+
+func (tdb *TileDbEventStore) PutSimpleArray(input PutSimpleArrayInput) error {
+	object, err := tiledb.ObjectType(tdb.context, tdb.uri+"/"+input.DataPath)
+	if err != nil {
+		return err
+	}
+	if object == tiledb.TILEDB_INVALID {
+		//create array
+		buftype := reflect.TypeOf(input.Buffer)
+		if buftype.Kind() == reflect.Ptr {
+			buftype = buftype.Elem()
+		}
+
+		if buftype.Kind() != reflect.Slice {
+			return errors.New("invalid simple array type")
+		}
+		if newType, ok := Golang2AttrTypeMap[buftype.Elem().Kind()]; ok {
+			err = tdb.createSimpleArray(CreateSimpleArrayInput{
+				DataType:  newType,
+				XDim:      input.XDim,
+				YDim:      input.YDim,
+				ArrayPath: input.DataPath,
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.New("invalid simple array type")
+		}
+	}
+
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: defaultAttrName,
+			Buffer:   input.Buffer,
+		},
+	}
+	br := []int32{1, input.YDim, 1, input.XDim}
+	pinput := PutArrayInput{
+		Buffers:     buffers,
+		BufferRange: br,
+		DataPath:    input.DataPath,
+		ArrayType:   ARRAY_DENSE,
+	}
+	return tdb.PutArray(pinput)
+}
+
+func (tdb *TileDbEventStore) GetSimpleArray(input GetSimpleArrayInput) (*ArrayResult, error) {
+	var bufferRange []int32
+	if len(input.XRange) == 2 && len(input.YRange) == 2 {
+		bufferRange = []int32{input.YRange[0], input.YRange[1], input.XRange[0], input.XRange[1]}
+	}
+	ginput := GetArrayInput{
+		Attrs:       []string{defaultAttrName},
+		DataPath:    input.DataPath,
+		BufferRange: bufferRange,
+	}
+	result, err := tdb.GetArray(ginput)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func handleVariableResults(data []uint8, query *tiledb.Query, attr string, offsets []uint64) [][]uint8 {
@@ -402,8 +508,34 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 		}
 
 	}
+	d, err := schema.Domain()
+	//domain schema extraction is optional
+	if err == nil {
+		ndim, err := d.NDim()
+		if err == nil {
+			brange := make([]int32, ndim*2)
+			for i := 0; i < int(ndim); i++ {
+				dim, err := d.DimensionFromIndex(uint(i))
+				if err != nil {
+					log.Printf("Unable to extract array domain: %s\n", err)
+					break
+				}
+				domain, err := dim.Domain()
+				if err != nil {
+					log.Printf("Unable to extract array domain: %s\n", err)
+					break
+				}
+				if idomain, ok := domain.([]int32); ok {
+					brange[2*i] = idomain[0]
+					brange[2*i+1] = idomain[1]
+				}
+			}
+			ccArraySchema.Domain = brange
+		}
+	}
 	ccArraySchema.AttributeNames = names
 	ccArraySchema.AttributeTypes = types
+
 	return ccArraySchema, nil
 }
 

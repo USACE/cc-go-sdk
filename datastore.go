@@ -46,15 +46,6 @@ type StoreWriter interface {
 	Put(srcReader io.Reader, destPath string, destDataPath string) (int, error)
 }
 
-/*
-type FileDataStore interface {
-	Copy(destStore FileDataStore, srcpath string, destpath string) error
-	Get(path string, datapath string) (io.ReadCloser, error)
-	Put(srcReader io.Reader, destPath string) error
-	Delete(path string, datapath string) error
-}
-*/
-
 // Reference to a specific resource in a DataStore FILE, DB, etc
 // The credential attribute is the credential prefix
 // used to identify credentials in the environment.
