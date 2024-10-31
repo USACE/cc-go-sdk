@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 
@@ -13,9 +14,12 @@ func (registry DataStoreTypeRegistryMap) Register(storeType StoreType, storeInst
 	registry[storeType] = reflect.TypeOf(storeInstance)
 }
 
-func (registry DataStoreTypeRegistryMap) New(storeType StoreType) any {
-	s3Value := reflect.New(registry[storeType])
-	return s3Value.Elem().Addr().Interface()
+func (registry DataStoreTypeRegistryMap) New(storeType StoreType) (any, error) {
+	if storetype, ok := registry[storeType]; ok {
+		s3Value := reflect.New(storetype)
+		return s3Value.Elem().Addr().Interface(), nil
+	}
+	return nil, fmt.Errorf("Unregistered store type: %s\n", storeType)
 }
 
 var DataStoreTypeRegistry = make(DataStoreTypeRegistryMap)

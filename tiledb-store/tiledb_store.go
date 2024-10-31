@@ -1,22 +1,24 @@
 package cc
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"reflect"
+	"strconv"
 
+	"github.com/usace/cc-go-sdk"
 	. "github.com/usace/cc-go-sdk"
 
 	tiledb "github.com/TileDB-Inc/TileDB-Go"
-	"github.com/usace/filesapi"
 )
 
 const (
 	defaultAttrName     string = "a"
 	defaultMetadataPath string = "/scalars"
-	defaultTileExtent   int32  = 16
+	defaultTileExtent   int64  = 16
 )
 
 type TileDbEventStore struct {
@@ -24,28 +26,90 @@ type TileDbEventStore struct {
 	uri     string
 }
 
-func NewTiledbEventStore(eventPath string) (*TileDbEventStore, error) {
+var eventStoreType2TileDbType map[cc.ARRAY_TYPE]tiledb.ArrayType = map[cc.ARRAY_TYPE]tiledb.ArrayType{
+	cc.ARRAY_DENSE:  tiledb.TILEDB_DENSE,
+	cc.ARRAY_SPARSE: tiledb.TILEDB_SPARSE,
+}
+
+var eventStoreOrder2TileDbOrder map[cc.ARRAY_ORDER]tiledb.Layout = map[cc.ARRAY_ORDER]tiledb.Layout{
+	cc.ARRAY_ORDER_ROWMAJOR:  tiledb.TILEDB_ROW_MAJOR,
+	cc.ARRAY_ORDER_COLMAJOR:  tiledb.TILEDB_COL_MAJOR,
+	cc.ARRAY_ORDER_UNORDERED: tiledb.TILEDB_UNORDERED,
+}
+
+func NewTiledbEventStore(eventPath string, profile string) (*TileDbEventStore, error) {
 
 	rootPath := os.Getenv(CcRootPath)
 	if rootPath == "" {
 		rootPath = RemoteRootPath //set to default
 	}
 
-	uri := fmt.Sprintf("s3://cwbi-orm%s/%s/eventdb", rootPath, eventPath)
+	S3Id := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsAccessKeyId))
+	S3Key := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsSecretAccessKey))
+	S3Region := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion))
+	S3Bucket := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket))
+
+	uri := fmt.Sprintf("s3://%s/%s/eventdb", S3Bucket, rootPath)
 
 	config, err := tiledb.NewConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	awsconfig := BuildS3Config(CcProfile)
-	if awscreds, ok := awsconfig.Credentials.(filesapi.S3FS_Static); ok {
-		config.Set("vfs.s3.region", "us-east-1")
-		config.Set("vfs.s3.aws_access_key_id", awscreds.S3Id)
-		config.Set("vfs.s3.aws_secret_access_key", awscreds.S3Key)
-	} else {
-		return nil, errors.New("tiledb event store only supports static credentials")
+	//awsconfig := BuildS3Config(CcProfile)
+	//if awscreds, ok := awsconfig.Credentials.(filesapi.S3FS_Static); ok {
+	config.Set("vfs.s3.region", S3Region)
+	config.Set("vfs.s3.aws_access_key_id", S3Id)
+	config.Set("vfs.s3.aws_secret_access_key", S3Key)
+	//} else {
+	//	return nil, errors.New("tiledb event store only supports static credentials")
+	//}
+
+	context, err := tiledb.NewContext(config)
+	if err != nil {
+		return nil, err
 	}
+
+	store := TileDbEventStore{context, uri}
+	err = store.createAttributeArray()
+	return &store, err
+}
+func (tdb *TileDbEventStore) GetSession() any {
+	return tdb.context
+}
+
+func (tdb *TileDbEventStore) Connect(ds DataStore) (any, error) {
+	rootPath := os.Getenv(CcRootPath)
+	if rootPath == "" {
+		rootPath = RemoteRootPath //set to default
+	}
+
+	profile := ds.DsProfile
+	S3Id := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsAccessKeyId))
+	S3Key := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsSecretAccessKey))
+	S3Region := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion))
+	S3Bucket := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket))
+
+	//s3.us-gov-west-1.amazonaws.com
+
+	uri := fmt.Sprintf("s3://%s/%s/eventdb", S3Bucket, rootPath)
+	//uri := fmt.Sprintf("s3://%s%s/eventdb", bucket, rootPath)
+
+	//uri := fmt.Sprintf("s3://cwbi-orm%s/%s/eventdb", rootPath, eventPath)
+
+	config, err := tiledb.NewConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	//awsconfig := BuildS3Config(CcProfile)
+	//if awscreds, ok := awsconfig.Credentials.(filesapi.S3FS_Static); ok {
+	config.Set("vfs.s3.region", S3Region)
+	config.Set("vfs.s3.aws_access_key_id", S3Id)
+	config.Set("vfs.s3.aws_secret_access_key", S3Key)
+	//} else {
+	//	return nil, errors.New("tiledb event store only supports static credentials")
+	//}
 
 	context, err := tiledb.NewContext(config)
 	if err != nil {
@@ -115,7 +179,7 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 		}
 	}
 
-	arraySchema, err := tiledb.NewArraySchema(tdb.context, tiledb.TILEDB_DENSE)
+	arraySchema, err := tiledb.NewArraySchema(tdb.context, eventStoreType2TileDbType[input.ArrayType])
 	if err != nil {
 		return err
 	}
@@ -126,10 +190,11 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 	if err = arraySchema.AddAttributes(tiledbAttrs...); err != nil {
 		return err
 	}
-	arraySchema.SetCellOrder(tiledb.TILEDB_ROW_MAJOR)
+
+	//arraySchema.SetCellOrder(tiledb.TILEDB_ROW_MAJOR)
+	//arraySchema.SetTileOrder(tiledb.TILEDB_ROW_MAJOR)
+	arraySchema.SetCellOrder(eventStoreOrder2TileDbOrder[input.ArrayLayout])
 	arraySchema.SetTileOrder(tiledb.TILEDB_ROW_MAJOR)
-	//arraySchema.SetCellOrder(tiledb.TILEDB_COL_MAJOR)
-	//arraySchema.SetTileOrder(tiledb.TILEDB_COL_MAJOR)
 
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.ArrayPath)
 	if err != nil {
@@ -156,6 +221,7 @@ func (tdb *TileDbEventStore) PutArray(input PutArrayInput) error {
 		return err
 	}
 
+	/////////////DENSE////////////////
 	if err = query.SetLayout(tiledb.TILEDB_ROW_MAJOR); err != nil {
 		return err
 	}
@@ -189,6 +255,14 @@ func (tdb *TileDbEventStore) PutArray(input PutArrayInput) error {
 	if err != nil {
 		return err
 	}
+
+	///////////////SPARSE//////////////////
+
+	//if err = query.SetLayout(tiledb.TILEDB_UNORDERED); err != nil {
+	//	return err
+	//}
+
+	//////////////////////////////////////
 
 	err = query.Submit()
 	if err != nil {
@@ -276,7 +350,6 @@ func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error)
 	for i := 0; i < len(data); i++ {
 		if len(*offsets[i]) > 0 {
 			vr := handleVariableResults(data[i].([]uint8), query, input.Attrs[i], *offsets[i])
-			fmt.Println(vr)
 			data[i] = vr
 		}
 	}
@@ -287,6 +360,7 @@ func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error)
 		Range:  br,
 		Data:   data,
 		Schema: schema,
+		Attrs:  input.Attrs,
 		//Size:   size,
 	}, nil
 }
@@ -296,13 +370,20 @@ func GetSimpleArray() error {
 }
 
 func (tdb *TileDbEventStore) createSimpleArray(input CreateSimpleArrayInput) error {
-	xTileExtent := defaultTileExtent
-	if input.XDim < xTileExtent {
-		xTileExtent = input.XDim
+	tileExtent := defaultTileExtent
+	for _, d := range input.Dims {
+		if d < tileExtent {
+			tileExtent = d
+		}
 	}
-	yTileExtent := defaultTileExtent
-	if input.YDim < yTileExtent {
-		yTileExtent = input.YDim
+	dimensions := make([]ArrayDimension, len(input.Dims))
+	for i := 0; i < len(input.Dims); i++ {
+		dimensions[i] = ArrayDimension{
+			Name:          strconv.Itoa(i),
+			DimensionType: DIMENSION_INT,
+			Domain:        []int64{1, input.Dims[i]},
+			TileExtent:    tileExtent, //@TODO Fix this. Need to use a better tile extent
+		}
 	}
 	return tdb.CreateArray(
 		CreateArrayInput{
@@ -313,20 +394,7 @@ func (tdb *TileDbEventStore) createSimpleArray(input CreateSimpleArrayInput) err
 					DataType: input.DataType,
 				},
 			},
-			Dimensions: []ArrayDimension{
-				{
-					Name:          "Y",
-					DimensionType: DIMENSION_INT,
-					Domain:        []int32{1, input.YDim},
-					TileExtent:    yTileExtent,
-				},
-				{
-					Name:          "X",
-					DimensionType: DIMENSION_INT,
-					Domain:        []int32{1, input.XDim},
-					TileExtent:    xTileExtent,
-				},
-			},
+			Dimensions: dimensions,
 		},
 	)
 }
@@ -336,6 +404,12 @@ func (tdb *TileDbEventStore) PutSimpleArray(input PutSimpleArrayInput) error {
 	if err != nil {
 		return err
 	}
+
+	bufval := reflect.ValueOf(input.Buffer)
+	if bufval.Kind() == reflect.Ptr {
+		bufval = bufval.Elem() //dereference a buffer pointer reference
+	}
+
 	if object == tiledb.TILEDB_INVALID {
 		//create array
 		buftype := reflect.TypeOf(input.Buffer)
@@ -349,8 +423,7 @@ func (tdb *TileDbEventStore) PutSimpleArray(input PutSimpleArrayInput) error {
 		if newType, ok := Golang2AttrTypeMap[buftype.Elem().Kind()]; ok {
 			err = tdb.createSimpleArray(CreateSimpleArrayInput{
 				DataType:  newType,
-				XDim:      input.XDim,
-				YDim:      input.YDim,
+				Dims:      input.Dims,
 				ArrayPath: input.DataPath,
 			})
 			if err != nil {
@@ -364,10 +437,16 @@ func (tdb *TileDbEventStore) PutSimpleArray(input PutSimpleArrayInput) error {
 	buffers := []PutArrayBuffer{
 		{
 			AttrName: defaultAttrName,
-			Buffer:   input.Buffer,
+			Buffer:   bufval.Interface(),
 		},
 	}
-	br := []int32{1, input.YDim, 1, input.XDim}
+
+	br := make([]int64, len(input.Dims)*2)
+	for i := 0; i <= len(input.Dims); i += 2 {
+		br[i] = 1
+		br[i+1] = input.Dims[i/2]
+	}
+
 	pinput := PutArrayInput{
 		Buffers:     buffers,
 		BufferRange: br,
@@ -378,9 +457,9 @@ func (tdb *TileDbEventStore) PutSimpleArray(input PutSimpleArrayInput) error {
 }
 
 func (tdb *TileDbEventStore) GetSimpleArray(input GetSimpleArrayInput) (*ArrayResult, error) {
-	var bufferRange []int32
+	var bufferRange []int64
 	if len(input.XRange) == 2 && len(input.YRange) == 2 {
-		bufferRange = []int32{input.YRange[0], input.YRange[1], input.XRange[0], input.XRange[1]}
+		bufferRange = []int64{input.YRange[0], input.YRange[1], input.XRange[0], input.XRange[1]}
 	}
 	ginput := GetArrayInput{
 		Attrs:       []string{defaultAttrName},
@@ -450,7 +529,7 @@ func createBuffer(attrName string, attrType ATTR_TYPE, bufferElems map[string][3
 func CcStoreDimensionType2TileDbType(ccStoreDimType DIMENSION_TYPE) tiledb.Datatype {
 	switch ccStoreDimType {
 	case DIMENSION_INT:
-		return tiledb.TILEDB_INT32
+		return tiledb.TILEDB_INT64
 	}
 	//default?
 	return tiledb.TILEDB_INT32
@@ -513,7 +592,7 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 	if err == nil {
 		ndim, err := d.NDim()
 		if err == nil {
-			brange := make([]int32, ndim*2)
+			brange := make([]int64, ndim*2)
 			for i := 0; i < int(ndim); i++ {
 				dim, err := d.DimensionFromIndex(uint(i))
 				if err != nil {
@@ -525,7 +604,7 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 					log.Printf("Unable to extract array domain: %s\n", err)
 					break
 				}
-				if idomain, ok := domain.([]int32); ok {
+				if idomain, ok := domain.([]int64); ok {
 					brange[2*i] = idomain[0]
 					brange[2*i+1] = idomain[1]
 				}
@@ -681,4 +760,134 @@ func (tdb *TileDbEventStore) DeleteMetadata(key string) error {
 	defer array.Close()
 
 	return array.DeleteMetadata(key)
+}
+
+////////////////////////////////////
+//BufferData
+////////////////////////////////////
+
+func StructSliceToBuffers(data any) ([]BufferData, error) {
+	dataType := reflect.TypeOf(data)
+	dataVal := reflect.ValueOf(data)
+	if dataType.Kind() == reflect.Ptr {
+		dataType = dataType.Elem()
+		dataVal = dataVal.Elem()
+	}
+
+	bd, err := buildBuffers(dataType.Elem())
+	if err != nil {
+		log.Fatalln(err)
+	}
+	size := dataVal.Len()
+	for i := 0; i < size; i++ {
+		val := dataVal.Index(i)
+		for j, attr := range bd {
+			fmt.Println(attr.AttrName)
+			field := val.Field(attr.StructPosition)
+			bd[j].Buffer = reflect.Append(reflect.ValueOf(attr.Buffer), field).Interface()
+			fmt.Println(field.Interface())
+		}
+	}
+	bd.HandleStrings()
+	return bd, nil
+}
+
+func buildBuffers(structType reflect.Type) (BufferDataSet, error) {
+	tag := "eventstore"
+	bd := []BufferData{} //BufferDataSet is an alias for []BufferData
+	fieldNum := structType.NumField()
+	for i := 0; i < fieldNum; i++ {
+		field := structType.Field(i)
+		if tagval, ok := field.Tag.Lookup(tag); ok {
+			sliceType := reflect.SliceOf(field.Type)
+			newSlice := reflect.MakeSlice(sliceType, 0, 0)
+			if attrtype, ok := cc.Golang2AttrTypeMap[field.Type.Kind()]; ok {
+				b := BufferData{
+					AttrName:       tagval,
+					StructPosition: i,
+					AttrType:       attrtype,
+					Buffer:         newSlice.Interface(),
+				}
+				bd = append(bd, b)
+			} else {
+				return nil, fmt.Errorf("unsupported golang type: %s", field.Type.Kind())
+			}
+		}
+	}
+	return bd, nil
+}
+
+type BufferData struct {
+	AttrName       string
+	StructPosition int
+	AttrType       cc.ATTR_TYPE
+	Buffer         any
+	Offsets        []uint64
+}
+
+type BufferDataSet []BufferData
+
+var MAXDIMENSION int32 = 2000000 //@TODO this is a bad idea
+
+func (bd BufferDataSet) CreateArrayInput(arrayPath string) (CreateArrayInput, error) {
+	input := CreateArrayInput{}
+	input.ArrayPath = arrayPath
+	attributes := make([]ArrayAttribute, len(bd))
+	for i, buf := range bd {
+		attributes[i] = ArrayAttribute{
+			Name:     buf.AttrName,
+			DataType: buf.AttrType,
+		}
+	}
+	input.Attributes = attributes
+
+	input.Dimensions = []ArrayDimension{
+		{
+			Name:          "Y",
+			DimensionType: DIMENSION_INT,
+			Domain:        []int64{1, 327}, //@TODO.  Is this limited to 1D arrays, and how to i get siz4e.  Switch to sparse!
+			TileExtent:    defaultTileExtent,
+		},
+	}
+
+	return input, nil
+}
+
+func (bd BufferDataSet) PutArrayInput(arrayPath string) PutArrayInput {
+	pabs := make([]PutArrayBuffer, len(bd))
+	for i, buf := range bd {
+		pabs[i] = PutArrayBuffer{
+			AttrName: buf.AttrName,
+			Buffer:   buf.Buffer,
+			Offsets:  buf.Offsets,
+		}
+	}
+	subarraySize := reflect.ValueOf(bd[1].Buffer).Len()
+	return PutArrayInput{
+		Buffers:     pabs,
+		BufferRange: []int64{1, int64(subarraySize), 1, 1},
+		DataPath:    arrayPath,
+		ArrayType:   ARRAY_DENSE,
+	}
+}
+
+func (bd BufferDataSet) HandleStrings() {
+	for i, buf := range bd {
+		if buf.AttrType == cc.ATTR_STRING {
+			oldSlice := reflect.ValueOf(buf.Buffer)
+			sliceLen := oldSlice.Len()
+			var newBuff bytes.Buffer
+			offsets := make([]uint64, sliceLen)
+			offsetIndex := 0
+			for j := 0; j < sliceLen; j++ {
+				oldVal := oldSlice.Index(j)
+				newBytes := []byte(oldVal.String())
+				newBuff.Write(newBytes)
+				offsets[j] = uint64(offsetIndex)
+				offsetIndex += len(newBytes)
+			}
+			bd[i].Buffer = newBuff.Bytes()
+			bd[i].Offsets = offsets
+		}
+	}
 }

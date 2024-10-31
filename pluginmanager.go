@@ -79,7 +79,10 @@ func InitPluginManager() (*PluginManager, error) {
 		manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
 		manager.Actions = payload.Actions
 		for i, ds := range manager.Stores {
-			newInstance := DataStoreTypeRegistry.New(ds.StoreType)
+			newInstance, err := DataStoreTypeRegistry.New(ds.StoreType)
+			if err != nil {
+				return nil, err
+			}
 			if cds, ok := newInstance.(ConnectionDataStore); ok {
 				conn, err := cds.Connect(ds)
 				if err != nil {

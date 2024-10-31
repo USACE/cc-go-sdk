@@ -8,23 +8,30 @@ import (
 type ARRAY_TYPE int
 type ATTR_TYPE int
 type DIMENSION_TYPE int
+type ARRAY_ORDER int
 
 // used to get types for simple arrays.  disallow variable length types in simple arrays
 var Golang2AttrTypeMap map[reflect.Kind]ATTR_TYPE = map[reflect.Kind]ATTR_TYPE{
 	reflect.Float32: ATTR_FLOAT32,
 	reflect.Float64: ATTR_FLOAT64,
+	reflect.Uint8:   ATTR_UINT8,
 	reflect.Int8:    ATTR_INT8,
 	reflect.Int16:   ATTR_INT16,
 	reflect.Int32:   ATTR_INT32,
 	reflect.Int64:   ATTR_INT64,
+	reflect.String:  ATTR_STRING,
 }
 
 const (
 	DIMENSION_INT    DIMENSION_TYPE = 0
 	DIMENSION_STRING DIMENSION_TYPE = 1
 
-	ARRAY_DENSE  ARRAY_TYPE = 0
+	ARRAY_DENSE  ARRAY_TYPE = 0 //default array type
 	ARRAY_SPARSE ARRAY_TYPE = 1
+
+	ARRAY_ORDER_ROWMAJOR  = 0 //default ordering
+	ARRAY_ORDER_COLMAJOR  = 1
+	ARRAY_ORDER_UNORDERED = 2
 
 	ATTR_INT64   ATTR_TYPE = 0
 	ATTR_INT32   ATTR_TYPE = 1
@@ -57,8 +64,8 @@ type MultiDimensionalArrayStore interface {
 }
 
 type SimpleArrayStore interface {
-	ReadArray()
-	WriteArray()
+	PutSimpleArray(input PutSimpleArrayInput) error
+	GetSimpleArray(input GetSimpleArrayInput) (*ArrayResult, error)
 }
 
 /*
@@ -67,35 +74,39 @@ NOTES:
 */
 
 // MatrixTypeSupport
-type ArrayStoreDataType interface {
-	float32 | float64 | int64 | int32 | int16 | int8 | uint8 | string
-}
+//type ArrayStoreDataType interface {
+//	float32 | float64 | int64 | int32 | int16 | int8 | uint8 | string
+//}
 
 type CreateSimpleArrayInput struct {
-	DataType  ATTR_TYPE
-	XDim      int32
-	YDim      int32
+	DataType ATTR_TYPE
+	//represents the size of each dimension
+	//there should be one value in the array for each dimension
+	Dims      []int64
 	ArrayPath string
 }
 
 type PutSimpleArrayInput struct {
 	Buffer any
-	XDim   int32
-	YDim   int32
-	//BufferRange []int32
+
+	//we insert the entire array on a simple array put
+	//so the dims are the same as a create and represent the size of each dimension
+	Dims     []int64
 	DataPath string
 }
 
 type GetSimpleArrayInput struct {
 	DataPath string
-	XRange   []int32 //optional
-	YRange   []int32 //optional
+	XRange   []int64 //optional
+	YRange   []int64 //optional
 }
 
 type CreateArrayInput struct {
-	Attributes []ArrayAttribute
-	Dimensions []ArrayDimension
-	ArrayPath  string
+	Attributes  []ArrayAttribute
+	Dimensions  []ArrayDimension
+	ArrayPath   string
+	ArrayType   ARRAY_TYPE
+	ArrayLayout ARRAY_ORDER
 }
 
 type ArrayAttribute struct {
@@ -106,15 +117,16 @@ type ArrayAttribute struct {
 type ArrayDimension struct {
 	Name          string
 	DimensionType DIMENSION_TYPE
-	Domain        []int32
-	TileExtent    int32
+	Domain        []int64
+	TileExtent    int64
 }
 
 type PutArrayInput struct {
 	Buffers     []PutArrayBuffer
-	BufferRange []int32
+	BufferRange []int64
 	DataPath    string
 	ArrayType   ARRAY_TYPE
+	Coords      [][]int64
 }
 
 type PutArrayBuffer struct {
@@ -126,13 +138,13 @@ type PutArrayBuffer struct {
 type GetArrayInput struct {
 	Attrs       []string
 	DataPath    string
-	BufferRange []int32
+	BufferRange []int64
 }
 
 type ArraySchema struct {
 	AttributeNames []string
 	AttributeTypes []ATTR_TYPE
-	Domain         []int32
+	Domain         []int64
 }
 
 func (as ArraySchema) GetType(attrname string) (ATTR_TYPE, error) {
@@ -145,19 +157,37 @@ func (as ArraySchema) GetType(attrname string) (ATTR_TYPE, error) {
 }
 
 type ArrayResult struct {
-	Range  []int32
+	Range  []int64
 	Data   []any
 	Schema ArraySchema
 	row    int
+	Attrs  []string
 	//Size   int
 }
 
 func (ar *ArrayResult) GetRow(rowindex int, attrindex int, dest any) {
 	start := rowindex * int(ar.Range[3]-ar.Range[2]+1)
 	end := start + int(ar.Range[3]-ar.Range[2]+1)
-	v := reflect.ValueOf(ar.Data[0])
+	v := reflect.ValueOf(ar.Data[attrindex])
 	rowvals := v.Slice(start, end)
 	reflect.ValueOf(dest).Elem().Set(rowvals)
+}
+
+// @TODO getcolumn and get row don't thow errors but can panic.
+// Consider recovering from panics and returning errors
+func (ar *ArrayResult) GetColumn(colindex int, attrindex int, dest any) {
+	//destVal := reflect.ValueOf(dest).Elem() //get a value reference to the dest slice
+	destType := reflect.TypeOf(dest).Elem()
+	newVals := reflect.MakeSlice(destType, 0, 0)
+	vals := reflect.ValueOf(ar.Data[attrindex])
+	resultrows := ar.Range[1] - ar.Range[0] + 1
+	resultcols := ar.Range[3] - ar.Range[2] + 1
+	for i := 0; i < int(resultrows); i++ {
+		index := (i * int(resultcols)) + colindex
+		val := vals.Index(index)
+		newVals = reflect.Append(newVals, val)
+	}
+	reflect.ValueOf(dest).Elem().Set(newVals)
 }
 
 func (ar *ArrayResult) Size() int {
@@ -185,14 +215,26 @@ func (ar *ArrayResult) Scan(val any) error {
 		for i, s := range ar.Schema.AttributeNames {
 			if s == attr {
 				typ := ar.Schema.AttributeTypes[i]
-				val := handleType(ar.row, typ, ar.Data[i])
-				field := elemVal.Field(pos)
-				field.Set(reflect.ValueOf(val))
+				resultPosition := attrResultPosition(s, ar.Attrs)
+				if resultPosition > -1 {
+					val := handleType(ar.row, typ, ar.Data[resultPosition])
+					field := elemVal.Field(pos)
+					field.Set(reflect.ValueOf(val))
+				}
 			}
 		}
 	}
 	ar.row++
 	return nil
+}
+
+func attrResultPosition(attr string, attrs []string) int {
+	for i, v := range attrs {
+		if v == attr {
+			return i
+		}
+	}
+	return -1
 }
 
 func handleType(index int, attrType ATTR_TYPE, val any) any {

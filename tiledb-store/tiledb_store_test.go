@@ -20,11 +20,15 @@ var testData []float64 = []float64{
 	40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
 }
 
+const (
+	testProfile string = "FFRD"
+)
+
 // ////////SIMPLE ARRAY TESTS
-func TestTileDbPutSimpleArrayFinal(t *testing.T) {
+func TestTileDbPutSimpleArray(t *testing.T) {
 	//open store
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,9 +36,8 @@ func TestTileDbPutSimpleArrayFinal(t *testing.T) {
 	//put simple array
 	input := PutSimpleArrayInput{
 		Buffer:   testData,
-		DataPath: "watersurface",
-		XDim:     10,
-		YDim:     5,
+		DataPath: "five-by-ten-test",
+		Dims:     []int64{5, 10}, //5 rows, 10 columns
 	}
 
 	err = eventStore.PutSimpleArray(input)
@@ -43,55 +46,70 @@ func TestTileDbPutSimpleArrayFinal(t *testing.T) {
 	}
 }
 
-func TestReadSimpleArray(t *testing.T) {
+func TestTileDbGetSimpleArray(t *testing.T) {
 
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	//Extract a 3 row by 5 column portion of the array
 	input := GetSimpleArrayInput{
-		DataPath: "watersurface",
-		XRange:   []int32{5, 10},
-		YRange:   []int32{2, 4},
+		DataPath: "five-by-ten-test",
+		XRange:   []int64{5, 10},
+		YRange:   []int64{2, 4},
 	}
 
 	result, err := eventStore.GetSimpleArray(input)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatal(err)
 	}
 
+	//print values
 	fmt.Println(result)
 	fmt.Println(result.Rows())
 	fmt.Println(result.Cols())
 
+	//create a slice to hold row and column value arrays
 	dest := []float64{}
 
+	//enumerate rows ad columns of the extracted data set
+	//rows and column indices are reltive to the result data, not the
+	//full array
 	for row := 0; row < result.Rows(); row++ {
 		result.GetRow(row, 0, &dest)
 		fmt.Println(dest)
 	}
 
+	for col := 0; col < result.Cols(); col++ {
+		result.GetColumn(col, 0, &dest)
+		fmt.Println(dest)
+	}
+
+	//extract the entire dataset
+	//Ranges can be omitted
 	input = GetSimpleArrayInput{
-		DataPath: "watersurface",
+		DataPath: "five-by-ten-test",
 	}
 
 	result, err = eventStore.GetSimpleArray(input)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatal(err)
 	}
+
 	fmt.Println(result)
 	fmt.Println(result.Rows())
 	fmt.Println(result.Cols())
 
 }
 
-/////////////////////////////
-
-func TestTileDbStoreCreateArray(t *testing.T) {
+// ///////////////////////////
+// //1D Dense Array Testing///
+// //////////////////////////
+func TestTileDbStoreCreate1dDenseArray(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,16 +129,10 @@ func TestTileDbStoreCreateArray(t *testing.T) {
 			},
 			Dimensions: []ArrayDimension{
 				{
-					"Y", //row
-					DIMENSION_INT,
-					[]int32{1, 10},
-					5,
-				},
-				{
-					"X", //col
-					DIMENSION_INT,
-					[]int32{1, 10},
-					5,
+					Name:          "Y", //row
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 10},
+					TileExtent:    5,
 				},
 			},
 		},
@@ -130,80 +142,9 @@ func TestTileDbStoreCreateArray(t *testing.T) {
 	}
 }
 
-func TestTiledbCreateSimpleArray(t *testing.T) {
-	input := CreateSimpleArrayInput{
-		DataType:  ATTR_FLOAT64,
-		XDim:      10,
-		YDim:      5,
-		ArrayPath: "watersurface8",
-	}
-	eventPath := "sims/1/"
-
-	eventStore, err := NewTiledbEventStore(eventPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = eventStore.CreateArray(
-		//creating a 10x5 array with a tile size of 5x5
-		CreateArrayInput{
-			ArrayPath: input.ArrayPath,
-			Attributes: []ArrayAttribute{
-				{defaultAttrName, input.DataType},
-			},
-			Dimensions: []ArrayDimension{
-				{
-					"Y", //d1 corresponds to row domain
-					DIMENSION_INT,
-					[]int32{1, input.YDim},
-					5,
-				},
-				{
-					"X", //col
-					DIMENSION_INT,
-					[]int32{1, input.XDim},
-					5,
-				},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestTiledbWriteSimpleArray(t *testing.T) {
-	input := PutSimpleArrayInput{
-		Buffer:   testData,
-		DataPath: "watersurface6",
-	}
-
+func TestTileDbStoreWrite1dDenseArray(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	buffers := []PutArrayBuffer{
-		{
-			AttrName: defaultAttrName,
-			Buffer:   input.Buffer,
-		},
-	}
-	br := []int32{1, 10, 1, 5}
-	pinput := PutArrayInput{
-		Buffers:     buffers,
-		BufferRange: br,
-		DataPath:    input.DataPath,
-		ArrayType:   ARRAY_DENSE,
-	}
-	err = eventStore.PutArray(pinput)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func TestTileDbStoreWriteArray(t *testing.T) {
-	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +185,157 @@ func TestTileDbStoreWriteArray(t *testing.T) {
 		},
 	}
 
-	subarray := []int32{1, 2, 3, 4}
+	subarray := []int64{3, 6}
+	input := PutArrayInput{
+		Buffers:     buffers,
+		BufferRange: subarray,
+		DataPath:    "dataset1",
+		ArrayType:   ARRAY_DENSE,
+	}
+	err = eventStore.PutArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTileDbStoreGet1dDenseArray(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := GetArrayInput{
+		DataPath:    "dataset1",
+		BufferRange: []int64{3, 6},
+		Attrs:       []string{"attr1", "attr2", "attr3", "attr4", "attr5", "attr6", "attr7", "attr8"},
+	}
+
+	result, err := eventStore.GetArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := TestStruct{}
+	for i := 0; i < result.Size(); i++ {
+		result.Scan(&ts)
+		fmt.Println(ts)
+	}
+}
+
+func TestTiledbCreateSimpleArray(t *testing.T) {
+	input := CreateSimpleArrayInput{
+		DataType:  ATTR_FLOAT64,
+		Dims:      []int64{5, 10},
+		ArrayPath: "watersurface8",
+	}
+	eventPath := "sims/1/"
+
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eventStore.CreateArray(
+		//creating a 10x5 array with a tile size of 5x5
+		CreateArrayInput{
+			ArrayPath: input.ArrayPath,
+			Attributes: []ArrayAttribute{
+				{defaultAttrName, input.DataType},
+			},
+			Dimensions: []ArrayDimension{
+				{
+					"Y", //d1 corresponds to row domain
+					DIMENSION_INT,
+					[]int64{1, input.Dims[0]},
+					5,
+				},
+				{
+					"X", //col
+					DIMENSION_INT,
+					[]int64{1, input.Dims[1]},
+					5,
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTiledbWriteSimpleArray(t *testing.T) {
+	input := PutSimpleArrayInput{
+		Buffer:   testData,
+		DataPath: "watersurface6",
+	}
+
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: defaultAttrName,
+			Buffer:   input.Buffer,
+		},
+	}
+	br := []int64{1, 10, 1, 5}
+	pinput := PutArrayInput{
+		Buffers:     buffers,
+		BufferRange: br,
+		DataPath:    input.DataPath,
+		ArrayType:   ARRAY_DENSE,
+	}
+	err = eventStore.PutArray(pinput)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func TestTileDbStoreWriteArray(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: "attr1",
+			Buffer:   []uint8{1, 2, 3, 4},
+		},
+		{
+			AttrName: "attr2",
+			Buffer:   []int8{5, 6, 7, 8},
+		},
+		{
+			AttrName: "attr3",
+			Buffer:   []int16{9, 10, 11, 12},
+		},
+		{
+			AttrName: "attr4",
+			Buffer:   []int32{13, 14, 15, 16},
+		},
+		{
+			AttrName: "attr5",
+			Buffer:   []int64{17, 18, 19, 20},
+		},
+		{
+			AttrName: "attr6",
+			Buffer:   []float32{1.1, 2.2, 3.3, 4.4},
+		},
+		{
+			AttrName: "attr7",
+			Buffer:   []float64{5.5, 6.6, 7.7, 8.8},
+		},
+		{
+			AttrName: "attr8",
+			Buffer:   []byte("test1tester234test456test987"),
+			Offsets:  []uint64{0, 5, 14, 21},
+		},
+	}
+
+	subarray := []int64{1, 2, 3, 4}
 	input := PutArrayInput{
 		Buffers:     buffers,
 		BufferRange: subarray,
@@ -269,36 +360,16 @@ type TestStruct struct {
 	Val8 string  `eventstore:"attr8"`
 }
 
-func TestTileDbPutSimpleArray(t *testing.T) {
-	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	input := PutSimpleArrayInput{
-		Buffer:   &testData,
-		XDim:     10,
-		YDim:     5,
-		DataPath: "simple_array",
-	}
-	err = eventStore.PutSimpleArray(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-}
-
 func TestTileDbStoreGetArray(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	input := GetArrayInput{
 		DataPath:    "dataset1",
-		BufferRange: []int32{1, 2, 3, 4},
+		BufferRange: []int64{1, 2, 3, 4},
 		Attrs:       []string{"attr1", "attr2", "attr3", "attr4", "attr5", "attr6", "attr7", "attr8"},
 	}
 
@@ -317,7 +388,7 @@ func TestTileDbStoreGetArray(t *testing.T) {
 
 func TestTileDbStorePutMetdataInt64Slice(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +400,7 @@ func TestTileDbStorePutMetdataInt64Slice(t *testing.T) {
 
 func TestTileDbStorePutMetdataInt32Slice(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +412,7 @@ func TestTileDbStorePutMetdataInt32Slice(t *testing.T) {
 
 func TestTileDbStorePutMetdataFloat64(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +425,7 @@ func TestTileDbStorePutMetdataFloat64(t *testing.T) {
 
 func TestTileDbStoreGetMetdata(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +444,7 @@ type MyStruct struct {
 
 func TestTileDbStorePutMetdataStruct(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +461,7 @@ func TestTileDbStorePutMetdataStruct(t *testing.T) {
 
 func TestTileDbStoreDeleteMetdataFloat64(t *testing.T) {
 	eventPath := "sims/1"
-	eventStore, err := NewTiledbEventStore(eventPath)
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
 	if err != nil {
 		t.Fatal(err)
 	}

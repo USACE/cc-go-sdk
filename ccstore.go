@@ -13,6 +13,7 @@ const (
 	WS    StoreType = "WS"
 	RDBMS StoreType = "RDBMS"
 	EBS   StoreType = "EBS"
+	//@TODO ADD TileDB store type here
 )
 
 type ObjectState int8
