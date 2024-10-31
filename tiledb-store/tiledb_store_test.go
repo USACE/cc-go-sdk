@@ -24,6 +24,8 @@ const (
 	testProfile string = "FFRD"
 )
 
+//@TODO Test array layouts
+
 // ////////SIMPLE ARRAY TESTS
 func TestTileDbPutSimpleArray(t *testing.T) {
 	//open store
@@ -74,8 +76,8 @@ func TestTileDbGetSimpleArray(t *testing.T) {
 	//create a slice to hold row and column value arrays
 	dest := []float64{}
 
-	//enumerate rows ad columns of the extracted data set
-	//rows and column indices are reltive to the result data, not the
+	//enumerate rows and columns of the extracted data set
+	//rows and column indices are relative to the result data, not the
 	//full array
 	for row := 0; row < result.Rows(); row++ {
 		result.GetRow(row, 0, &dest)
@@ -103,6 +105,8 @@ func TestTileDbGetSimpleArray(t *testing.T) {
 	fmt.Println(result.Cols())
 
 }
+
+//////END SIMPLE ARRAY TESTS////
 
 // ///////////////////////////
 // //1D Dense Array Testing///
@@ -222,6 +226,274 @@ func TestTileDbStoreGet1dDenseArray(t *testing.T) {
 	}
 }
 
+////END 1D Dense Array Testing///
+
+// //////////////////////////////////////
+// //n Dimensional Dense Array Testing///
+// /////////////////////////////////////
+func TestTileDbStoreCreateNdimDenseArray1(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eventStore.CreateArray(
+		//creating a 4x4x4 array with a tile size of 2x2x2
+		CreateArrayInput{
+			ArrayPath: "ndimdense1",
+			Attributes: []ArrayAttribute{
+				{"attr1", ATTR_UINT8},
+			},
+			Dimensions: []ArrayDimension{
+				{
+					Name:          "d1",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+				{
+					Name:          "d2",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+				{
+					Name:          "d3",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTileDbStoreWriteNdimDenseArray1(t *testing.T) {
+	//create data to store
+	data := make([]uint8, 64)
+	for i := 0; i < len(data); i++ {
+		data[i] = uint8(i)
+	}
+	//
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: "attr1",
+			Buffer:   data,
+		},
+	}
+
+	input := PutArrayInput{
+		Buffers:   buffers,
+		DataPath:  "ndimdense1",
+		ArrayType: ARRAY_DENSE,
+	}
+	err = eventStore.PutArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTileDbStoreGetNdimDenseArray1(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := GetArrayInput{
+		DataPath: "ndimdense1",
+		Attrs:    []string{"attr1"},
+	}
+
+	result, err := eventStore.GetArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(result.Data)
+	ts := TestStruct{}
+	for i := 0; i < result.Size(); i++ {
+		result.Scan(&ts)
+		fmt.Println(ts)
+	}
+}
+
+func TestTileDbStoreWriteNdimDenseArray1b(t *testing.T) {
+	//create data to store
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: "attr1",
+			Buffer:   []uint8{101, 102, 103, 104},
+		},
+	}
+
+	subarray := []int64{3, 3, 1, 2, 2, 3}
+	input := PutArrayInput{
+		Buffers:     buffers,
+		BufferRange: subarray,
+		DataPath:    "ndimdense1",
+		ArrayType:   ARRAY_DENSE,
+	}
+	err = eventStore.PutArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+////END n Dimensional Dense Array Testing///
+
+///////////////////////////////////////////
+///////////Sparse Array Testing////////////
+///////////////////////////////////////////
+
+func TestTileDbCreateSparseArray(t *testing.T) {
+
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = eventStore.CreateArray(
+		//creating a 4x4x4 array with a tile size of 2x2x2
+		CreateArrayInput{
+			ArrayPath: "sparse1",
+			ArrayType: ARRAY_SPARSE,
+			Attributes: []ArrayAttribute{
+				{"attr1", ATTR_UINT8},
+			},
+			Dimensions: []ArrayDimension{
+				{
+					Name:          "d1",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+				{
+					Name:          "d2",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+				{
+					Name:          "d3",
+					DimensionType: DIMENSION_INT,
+					Domain:        []int64{1, 4},
+					TileExtent:    2,
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTileDbStoreWriteNdimSparseArray1b(t *testing.T) {
+	//create data to store
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buffers := []PutArrayBuffer{
+		{
+			AttrName: "attr1",
+			Buffer:   []uint8{101, 102, 103, 104},
+		},
+		{
+			AttrName: "d1",
+			Buffer:   []int64{2, 2, 4, 4},
+		},
+		{
+			AttrName: "d2",
+			Buffer:   []int64{1, 2, 3, 4},
+		},
+		{
+			AttrName: "d3",
+			Buffer:   []int64{2, 3, 4, 4},
+		},
+	}
+
+	input := PutArrayInput{
+		Buffers:   buffers,
+		DataPath:  "sparse1",
+		ArrayType: ARRAY_SPARSE,
+	}
+	err = eventStore.PutArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTileDbStoreGetSparseArray1(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := GetArrayInput{
+		DataPath: "sparse1",
+		Attrs:    []string{"attr1"},
+	}
+
+	result, err := eventStore.GetArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(result.Data)
+	ts := TestStruct{}
+	fmt.Println(result.Size())
+	for i := 0; i < result.Size(); i++ {
+		result.Scan(&ts)
+		fmt.Println(ts)
+	}
+}
+
+func TestTileDbStoreGetSparseArray2(t *testing.T) {
+	eventPath := "sims/1"
+	eventStore, err := NewTiledbEventStore(eventPath, testProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := GetArrayInput{
+		DataPath:    "sparse1",
+		Attrs:       []string{"attr1"},
+		BufferRange: []int64{2, 3, 1, 2, 1, 4},
+	}
+
+	result, err := eventStore.GetArray(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(result.Data)
+	ts := TestStruct{}
+	fmt.Println(result.Size())
+	for i := 0; i < result.Size(); i++ {
+		result.Scan(&ts)
+		fmt.Println(ts)
+	}
+}
+
+// //////////////////////////////////////
+// //////OLD TESTS//////////////////////
+// /////////////////////////////////////
 func TestTiledbCreateSimpleArray(t *testing.T) {
 	input := CreateSimpleArrayInput{
 		DataType:  ATTR_FLOAT64,

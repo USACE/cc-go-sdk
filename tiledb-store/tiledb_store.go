@@ -31,6 +31,15 @@ var eventStoreType2TileDbType map[cc.ARRAY_TYPE]tiledb.ArrayType = map[cc.ARRAY_
 	cc.ARRAY_SPARSE: tiledb.TILEDB_SPARSE,
 }
 
+func getArrayType(at tiledb.ArrayType) (cc.ARRAY_TYPE, error) {
+	for k, v := range eventStoreType2TileDbType {
+		if v == at {
+			return k, nil
+		}
+	}
+	return 0, fmt.Errorf("invalid array type: %v", at)
+}
+
 var eventStoreOrder2TileDbOrder map[cc.ARRAY_ORDER]tiledb.Layout = map[cc.ARRAY_ORDER]tiledb.Layout{
 	cc.ARRAY_ORDER_ROWMAJOR:  tiledb.TILEDB_ROW_MAJOR,
 	cc.ARRAY_ORDER_COLMAJOR:  tiledb.TILEDB_COL_MAJOR,
@@ -90,26 +99,15 @@ func (tdb *TileDbEventStore) Connect(ds DataStore) (any, error) {
 	S3Region := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion))
 	S3Bucket := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket))
 
-	//s3.us-gov-west-1.amazonaws.com
-
 	uri := fmt.Sprintf("s3://%s/%s/eventdb", S3Bucket, rootPath)
-	//uri := fmt.Sprintf("s3://%s%s/eventdb", bucket, rootPath)
-
-	//uri := fmt.Sprintf("s3://cwbi-orm%s/%s/eventdb", rootPath, eventPath)
-
 	config, err := tiledb.NewConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	//awsconfig := BuildS3Config(CcProfile)
-	//if awscreds, ok := awsconfig.Credentials.(filesapi.S3FS_Static); ok {
 	config.Set("vfs.s3.region", S3Region)
 	config.Set("vfs.s3.aws_access_key_id", S3Id)
 	config.Set("vfs.s3.aws_secret_access_key", S3Key)
-	//} else {
-	//	return nil, errors.New("tiledb event store only supports static credentials")
-	//}
 
 	context, err := tiledb.NewContext(config)
 	if err != nil {
@@ -179,7 +177,8 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 		}
 	}
 
-	arraySchema, err := tiledb.NewArraySchema(tdb.context, eventStoreType2TileDbType[input.ArrayType])
+	arrayType := eventStoreType2TileDbType[input.ArrayType]
+	arraySchema, err := tiledb.NewArraySchema(tdb.context, arrayType)
 	if err != nil {
 		return err
 	}
@@ -191,9 +190,8 @@ func (tdb *TileDbEventStore) CreateArray(input CreateArrayInput) error {
 		return err
 	}
 
-	//arraySchema.SetCellOrder(tiledb.TILEDB_ROW_MAJOR)
-	//arraySchema.SetTileOrder(tiledb.TILEDB_ROW_MAJOR)
-	arraySchema.SetCellOrder(eventStoreOrder2TileDbOrder[input.ArrayLayout])
+	layout := eventStoreOrder2TileDbOrder[input.ArrayLayout]
+	arraySchema.SetCellOrder(layout)
 	arraySchema.SetTileOrder(tiledb.TILEDB_ROW_MAJOR)
 
 	array, err := tiledb.NewArray(tdb.context, tdb.uri+"/"+input.ArrayPath)
@@ -222,9 +220,34 @@ func (tdb *TileDbEventStore) PutArray(input PutArrayInput) error {
 	}
 
 	/////////////DENSE////////////////
-	if err = query.SetLayout(tiledb.TILEDB_ROW_MAJOR); err != nil {
-		return err
+	if input.ArrayType == ARRAY_DENSE {
+		if err = query.SetLayout(tiledb.TILEDB_ROW_MAJOR); err != nil {
+			return err
+		}
+
+		subarray, err := array.NewSubarray()
+		if err != nil {
+			return err
+		}
+		err = subarray.SetSubArray(input.BufferRange)
+		if err != nil {
+			return err
+		}
+
+		err = query.SetSubarray(subarray)
+		if err != nil {
+			return err
+		}
+	} else {
+
+		///////////////SPARSE//////////////////
+
+		if err = query.SetLayout(tiledb.TILEDB_UNORDERED); err != nil {
+			return err
+		}
 	}
+
+	//////////////////////////////////////
 
 	for _, buffer := range input.Buffers {
 
@@ -241,28 +264,6 @@ func (tdb *TileDbEventStore) PutArray(input PutArrayInput) error {
 		}
 
 	}
-
-	subarray, err := array.NewSubarray()
-	if err != nil {
-		return err
-	}
-	err = subarray.SetSubArray(input.BufferRange)
-	if err != nil {
-		return err
-	}
-
-	err = query.SetSubarray(subarray)
-	if err != nil {
-		return err
-	}
-
-	///////////////SPARSE//////////////////
-
-	//if err = query.SetLayout(tiledb.TILEDB_UNORDERED); err != nil {
-	//	return err
-	//}
-
-	//////////////////////////////////////
 
 	err = query.Submit()
 	if err != nil {
@@ -324,6 +325,7 @@ func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error)
 
 	data := make([]any, len(input.Attrs))
 	offsets := make([]*[]uint64, len(input.Attrs))
+
 	for i, attr := range input.Attrs {
 		attrtype, err := schema.GetType(attr)
 		if err != nil {
@@ -341,6 +343,24 @@ func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error)
 			}
 		}
 	}
+	//////////////////////////////
+	//Set domains positions for sparse queries
+
+	var domains []any
+	if schema.ArrayType == cc.ARRAY_SPARSE {
+		domains = make([]any, len(schema.DomainNames))
+
+		for i, domain := range schema.DomainNames {
+			domainElem := bufferElems[domain]
+			domains[i] = make([]int64, domainElem[1])
+			_, err = query.SetDataBuffer(domain, domains[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	//////////////////////////////
 
 	err = query.Submit()
 	if err != nil {
@@ -354,14 +374,12 @@ func (tdb *TileDbEventStore) GetArray(input GetArrayInput) (*ArrayResult, error)
 		}
 	}
 
-	//size := bufferRangeSize(br)
-
 	return &ArrayResult{
-		Range:  br,
-		Data:   data,
-		Schema: schema,
-		Attrs:  input.Attrs,
-		//Size:   size,
+		Range:   br,
+		Data:    data,
+		Schema:  schema,
+		Attrs:   input.Attrs,
+		Domains: domains,
 	}, nil
 }
 
@@ -562,6 +580,16 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 		return ccArraySchema, err
 	}
 
+	tiledbArrayType, err := schema.Type()
+	if err != nil {
+		return ccArraySchema, err
+	}
+	ccArrayType, err := getArrayType(tiledbArrayType)
+	if err != nil {
+		return ccArraySchema, err
+	}
+	ccArraySchema.ArrayType = ccArrayType
+
 	attributes, err := schema.Attributes()
 	if err != nil {
 		return ccArraySchema, err
@@ -593,12 +621,19 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 		ndim, err := d.NDim()
 		if err == nil {
 			brange := make([]int64, ndim*2)
+			dnames := make([]string, ndim)
 			for i := 0; i < int(ndim); i++ {
 				dim, err := d.DimensionFromIndex(uint(i))
 				if err != nil {
 					log.Printf("Unable to extract array domain: %s\n", err)
 					break
 				}
+				dname, err := dim.Name()
+				if err != nil {
+					log.Printf("Error extracting domain name: %s\n", err)
+					break
+				}
+				dnames[i] = dname
 				domain, err := dim.Domain()
 				if err != nil {
 					log.Printf("Unable to extract array domain: %s\n", err)
@@ -610,6 +645,7 @@ func getArraySchema(array tiledb.Array) (ArraySchema, error) {
 				}
 			}
 			ccArraySchema.Domain = brange
+			ccArraySchema.DomainNames = dnames
 		}
 	}
 	ccArraySchema.AttributeNames = names

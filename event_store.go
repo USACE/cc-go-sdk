@@ -130,9 +130,9 @@ type PutArrayInput struct {
 }
 
 type PutArrayBuffer struct {
-	AttrName string
+	AttrName string //attribute or domain name for the buffer
 	Buffer   any
-	Offsets  []uint64
+	Offsets  []uint64 //offsets for variable length data type buffers
 }
 
 type GetArrayInput struct {
@@ -145,6 +145,8 @@ type ArraySchema struct {
 	AttributeNames []string
 	AttributeTypes []ATTR_TYPE
 	Domain         []int64
+	DomainNames    []string
+	ArrayType      ARRAY_TYPE
 }
 
 func (as ArraySchema) GetType(attrname string) (ATTR_TYPE, error) {
@@ -157,11 +159,12 @@ func (as ArraySchema) GetType(attrname string) (ATTR_TYPE, error) {
 }
 
 type ArrayResult struct {
-	Range  []int64
-	Data   []any
-	Schema ArraySchema
-	row    int
-	Attrs  []string
+	Range   []int64
+	Data    []any
+	Domains []any //exported for SPARSE array queries
+	Schema  ArraySchema
+	row     int
+	Attrs   []string
 	//Size   int
 }
 
@@ -176,7 +179,6 @@ func (ar *ArrayResult) GetRow(rowindex int, attrindex int, dest any) {
 // @TODO getcolumn and get row don't thow errors but can panic.
 // Consider recovering from panics and returning errors
 func (ar *ArrayResult) GetColumn(colindex int, attrindex int, dest any) {
-	//destVal := reflect.ValueOf(dest).Elem() //get a value reference to the dest slice
 	destType := reflect.TypeOf(dest).Elem()
 	newVals := reflect.MakeSlice(destType, 0, 0)
 	vals := reflect.ValueOf(ar.Data[attrindex])
