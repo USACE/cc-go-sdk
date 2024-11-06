@@ -1,153 +1,339 @@
 package cc
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"log"
-	"reflect"
-
-	"github.com/spf13/cast"
+	"io"
+	"os"
 )
 
-type Action struct {
-	Name        string            `json:"name"`
-	Type        string            `json:"type,omitempty"`
-	Description string            `json:"desc"`
-	Parameters  PayloadAttributes `json:"params"`
-}
+type DataSourceIoType string
+
+const (
+	DataSourceInput  DataSourceIoType = "INPUT"
+	DataSourceOutput DataSourceIoType = "OUTPUT"
+	DataSourceAll    DataSourceIoType = "" //zero value == all
+)
 
 type Payload struct {
+	IOManager
+	Actions []Action `json:"actions"`
+}
+
+type Action struct {
+	IOManager
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+type IOManager struct {
 	Attributes PayloadAttributes `json:"attributes,omitempty"`
 	Stores     []DataStore       `json:"stores"`
 	Inputs     []DataSource      `json:"inputs"`
 	Outputs    []DataSource      `json:"outputs"`
-	Actions    []Action          `json:"actions"`
 }
 
-type PayloadAttributes map[string]any
-
-func (p PayloadAttributes) GetInt(name string) (int, error) {
-	return GetAttribute[int](p, name)
+type GetDsInput struct {
+	DsIoType DataSourceIoType
+	DsName   string
 }
 
-func (p PayloadAttributes) GetIntOrFail(name string) int {
-	return GetOrFail[int](p, name)
+type DataSourceOpInput struct {
+	DataSourceName string
+	PathKey        string
+	DataPathKey    string
 }
 
-func (p PayloadAttributes) GetIntOrDefault(name string, defaultValue int) int {
-	return GetOrDefault[int](p, name, defaultValue)
+type PutOpInput struct {
+	SrcReader io.Reader
+	DataSourceOpInput
 }
 
-func (p PayloadAttributes) GetInt64(name string) (int64, error) {
-	return GetAttribute[int64](p, name)
-}
-
-func (p PayloadAttributes) GetInt64OrFail(name string) int64 {
-	return GetOrFail[int64](p, name)
-}
-
-func (p PayloadAttributes) GetInt64OrDefault(name string, defaultValue int64) int64 {
-	return GetOrDefault[int64](p, name, defaultValue)
-}
-
-func (p PayloadAttributes) GetFloat(name string) (float64, error) {
-	return GetAttribute[float64](p, name)
-}
-
-func (p PayloadAttributes) GetFloatOrFail(name string) float64 {
-	return GetOrFail[float64](p, name)
-}
-
-func (p PayloadAttributes) GetFloatOrDefault(name string, defaultValue float64) float64 {
-	return GetOrDefault[float64](p, name, defaultValue)
-}
-
-func (p PayloadAttributes) GetFloatSlice(name string) ([]float64, error) {
-	vals, ok := p[name]
-	if !ok {
-		return nil, fmt.Errorf("Invalid value for %s\n", name)
-	}
-	return Slice2Type[float64](vals.([]any)), nil
-}
-
-func (p PayloadAttributes) GetString(name string) (string, error) {
-	return GetAttribute[string](p, name)
-}
-
-func (p PayloadAttributes) GetStringSlice(name string) ([]string, error) {
-	vals, ok := p[name]
-	if !ok {
-		return nil, fmt.Errorf("Invalid value for %s\n", name)
-	}
-	return Slice2Type[string](vals.([]any)), nil
-}
-
-func (p PayloadAttributes) GetStringOrFail(name string) string {
-	return GetOrFail[string](p, name)
-}
-
-func (p PayloadAttributes) GetStringOrDefault(name string, defaultVal string) string {
-	return GetOrDefault[string](p, name, defaultVal)
-}
-
-type PayloadAttributeTypes interface {
-	int64 | int32 | int | float64 | string | bool
-}
-
-func GetOrFail[T PayloadAttributeTypes](pa PayloadAttributes, attr string) T {
-	val, err := GetAttribute[T](pa, attr)
-	if err != nil {
-		log.Fatalf("Invalid value for %v\n", err)
-	}
-	return val
-}
-
-func GetOrDefault[T PayloadAttributeTypes](pa PayloadAttributes, attr string, defaultVal T) T {
-	val, err := GetAttribute[T](pa, attr)
-	if err != nil {
-		val = defaultVal
-		log.Printf("Invalid value for %v. Using default of: %v\n", err, defaultVal)
-	}
-	return val
-}
-
-func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T, error) {
-	var t T
-	if attr, ok := pa[name]; ok {
-		tve := reflect.ValueOf(&t).Elem()
-		tk := tve.Kind()
-		switch tk {
-		case reflect.Int64:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(i))
-			return t, err
-		case reflect.Int:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(int(i)))
-			return t, err
-		case reflect.Int32:
-			i, err := cast.ToInt64E(attr)
-			tve.Set(reflect.ValueOf(int32(i)))
-			return t, err
-		case reflect.String:
-			s, err := cast.ToStringE(attr)
-			tve.Set(reflect.ValueOf(s))
-			return t, err
-		case reflect.Float64:
-			f, err := cast.ToFloat64E(attr)
-			tve.Set(reflect.ValueOf(f))
-			return t, err
-		default:
-			return t, errors.New("Unsupported type for cast")
+func (im *IOManager) GetStore(name string) (*DataStore, error) {
+	for _, store := range im.Stores {
+		if store.Name == name {
+			return &store, nil
 		}
 	}
-	return t, errors.New(fmt.Sprintf("Attribute %s is not in the payload\n", name))
+	return nil, errors.New("Invalid store name")
 }
 
-func Slice2Type[T any](input []any) []T {
-	out := make([]T, len(input))
-	for i, v := range input {
-		out[i] = v.(T)
+func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
+	sources := []DataSource{}
+	switch input.DsIoType {
+	case DataSourceInput:
+		sources = im.Inputs
+	case DataSourceOutput:
+		sources = im.Outputs
+	case DataSourceAll:
+		sources = append(sources, im.Inputs...)
+		sources = append(sources, im.Outputs...)
 	}
-	return out
+	for _, ds := range sources {
+		if input.DsName == ds.Name {
+			return ds, nil
+		}
+	}
+	return DataSource{}, errors.New(fmt.Sprintf("Data source %s not found", input.DsName))
+}
+
+func (im *IOManager) GetInputDataSource(name string) (DataSource, error) {
+	return im.GetDataSource(GetDsInput{DataSourceInput, name})
+}
+
+func (im *IOManager) GetOutputDataSource(name string) (DataSource, error) {
+	return im.GetDataSource(GetDsInput{DataSourceOutput, name})
+}
+
+func (im *IOManager) GetReader(input DataSourceOpInput) (io.Reader, error) {
+	dataSource, err := im.GetInputDataSource(input.DataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	dataStore, err := im.GetStore(dataSource.StoreName)
+	if readerStore, ok := dataStore.Session.(StoreReader); ok {
+		path := dataSource.Paths[input.PathKey]
+		datapath := ""
+		if input.DataPathKey != "" {
+			datapath = dataSource.DataPaths[input.DataPathKey]
+		}
+		return readerStore.Get(path, datapath)
+	}
+	return nil, fmt.Errorf("Data Store %s session does not implement a StoreReader", dataStore.Name)
+}
+
+func (im *IOManager) Get(input DataSourceOpInput) ([]byte, error) {
+	reader, err := im.GetReader(input)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(reader)
+	return buf.Bytes(), nil
+}
+
+func (im *IOManager) Put(input PutOpInput) (int, error) {
+	ds, err := im.GetOutputDataSource(input.DataSourceName)
+	if err != nil {
+		return 0, err
+	}
+
+	store, err := im.GetStore(ds.StoreName)
+	if err != nil {
+		return 0, err
+	}
+
+	if writer, ok := store.Session.(StoreWriter); ok {
+		path := ds.Paths[input.PathKey]
+		datapath := ""
+		if input.DataPathKey != "" {
+			datapath = ds.DataPaths[input.DataPathKey]
+		}
+
+		return writer.Put(input.SrcReader, path, datapath)
+	}
+
+	return 0, fmt.Errorf("Data Store %s session does not implement a StoreWriter", ds.StoreName)
+
+}
+
+func (im *IOManager) Copy(src DataSourceOpInput, dest DataSourceOpInput) error {
+	srcds, err := im.GetOutputDataSource(src.DataSourceName)
+	if err != nil {
+		return err
+	}
+
+	srcstore, err := im.GetStore(srcds.StoreName)
+	if err != nil {
+		return err
+	}
+
+	destds, err := im.GetOutputDataSource(dest.DataSourceName)
+	if err != nil {
+		return err
+	}
+
+	deststore, err := im.GetStore(destds.StoreName)
+	if err != nil {
+		return err
+	}
+
+	if srcReader, ok := srcstore.Session.(StoreReader); ok {
+		if destwriter, ok := deststore.Session.(StoreWriter); ok {
+
+			//get the reader
+			srcpath := srcds.Paths[src.PathKey]
+			srcdatapath := ""
+			if src.DataPathKey != "" {
+				srcdatapath = srcds.DataPaths[src.DataPathKey]
+			}
+			reader, err := srcReader.Get(srcpath, srcdatapath)
+			if err != nil {
+				return err
+			}
+
+			//write
+			destpath := destds.Paths[dest.PathKey]
+			destdatapath := ""
+			if dest.DataPathKey != "" {
+				destdatapath = destds.DataPaths[dest.DataPathKey]
+			}
+			_, err = destwriter.Put(reader, destpath, destdatapath)
+			return err
+		}
+		return fmt.Errorf("Destination Data Store %s session does not implement a StoreWriter", srcstore.Name)
+	}
+	return fmt.Errorf("Source Data Store %s session does not implement a StoreReader", srcstore.Name)
+}
+
+func (im *IOManager) CopyFileToLocal(dsName string, pathkey string, dataPathKey string, localPath string) error {
+	ds, err := im.GetDataSource(GetDsInput{DataSourceInput, dsName})
+	if err != nil {
+		return err
+	}
+
+	store, err := im.GetStore(ds.StoreName)
+	if err != nil {
+		return err
+	}
+
+	path := ds.Paths[pathkey]
+	datapath := ""
+	if dataPathKey != "" {
+		datapath = ds.DataPaths[dataPathKey]
+	}
+
+	if storeReader, ok := store.Session.(StoreReader); ok {
+		reader, err := storeReader.Get(path, datapath)
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+
+		writer, err := os.Create(localPath)
+		if err != nil {
+			return err
+		}
+		defer writer.Close()
+		_, err = io.Copy(writer, reader)
+		return err
+
+	}
+
+	return fmt.Errorf("Data Store %s session does not implement a StoreReader", store.Name)
+}
+
+type CopyFileToRemoteInput struct {
+	RemoteStoreName string
+	RemotePath      string
+	LocalPath       string
+	RemoteDsName    string
+	DsPathKey       string
+	DsDataPathKey   string
+}
+
+func (im *IOManager) CopyFileToRemote(input CopyFileToRemoteInput) error {
+	storeName := input.RemoteStoreName
+	path := input.RemotePath
+	datapath := ""
+	if storeName == "" {
+		//get store name from datasource and use datasource semantics
+		ds, err := im.GetDataSource(GetDsInput{DataSourceOutput, input.RemoteDsName})
+		if err != nil {
+			return err
+		}
+		storeName = ds.StoreName
+		path = ds.Paths[input.DsPathKey]
+		if input.DsDataPathKey != "" {
+			datapath = ds.DataPaths[input.DsDataPathKey]
+		}
+
+	}
+
+	store, err := im.GetStore(storeName)
+	if err != nil {
+		return err
+	}
+
+	if writer, ok := store.Session.(StoreWriter); ok {
+		reader, err := os.Open(input.LocalPath)
+		if err != nil {
+			return err
+		}
+
+		_, err = writer.Put(reader, path, datapath)
+		return err
+	}
+
+	return fmt.Errorf("Data Store %s session does not implement a StoreWriter", store.Name)
+}
+
+func (im *IOManager) CopyFileToRemoteOld(dsDestName string, pathkey string, dataPathKey string, localPath string) error {
+	ds, err := im.GetDataSource(GetDsInput{DataSourceOutput, dsDestName})
+	if err != nil {
+		return err
+	}
+
+	store, err := im.GetStore(ds.StoreName)
+	if err != nil {
+		return err
+	}
+
+	if writer, ok := store.Session.(StoreWriter); ok {
+		reader, err := os.Open(localPath)
+		if err != nil {
+			return err
+		}
+
+		path := ds.Paths[pathkey]
+		datapath := ""
+		if dataPathKey != "" {
+			datapath = ds.DataPaths[dataPathKey]
+		}
+
+		_, err = writer.Put(reader, path, datapath)
+		return err
+	}
+
+	return fmt.Errorf("Data Store %s session does not implement a StoreWriter", ds.StoreName)
+}
+
+/*
+func (im *IOManager) fileReader(ds DataSource, pathkey string) (io.ReadCloser, error) {
+	store, err := GetStoreAs[FileDataStore](im, ds.StoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	reader, err := store.Get(ds.Paths[pathkey])
+
+	return reader, err
+}
+*/
+
+/*
+func (im *IOManager) GetReader(dataSourceName string, filePathKey string, dataPathKey string) (io.Reader, error) {
+	ds,err:=im.GetDataSource(GetDsInput{DataSourceInput,dataSourceName})
+	if err!=nil{
+		return nil,err
+	}
+	ds.
+
+}
+*/
+
+func GetStoreAs[T any](mgr *IOManager, name string) (T, error) {
+	for _, s := range mgr.Stores {
+		if s.Name == name {
+			if t, ok := s.Session.(T); ok {
+				return t, nil
+			} else {
+				return t, errors.New("Invalid Store Type")
+			}
+		}
+	}
+	var t T
+	return t, errors.New(fmt.Sprintf("Session %s does not exist.\n", name))
 }

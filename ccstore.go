@@ -2,7 +2,7 @@ package cc
 
 const (
 	localRootPath   = "/data"
-	remoteRootPath  = "/cc_store"
+	RemoteRootPath  = "/cc_store"
 	payloadFileName = "payload"
 )
 
@@ -13,6 +13,7 @@ const (
 	WS    StoreType = "WS"
 	RDBMS StoreType = "RDBMS"
 	EBS   StoreType = "EBS"
+	//@TODO ADD TileDB store type here
 )
 
 type ObjectState int8

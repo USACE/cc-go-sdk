@@ -1,0 +1,207 @@
+
+Store Semantics:
+ - Object Store
+ - Compute Store
+ - RDBMS Store
+
+----------Data Store Notes----------
+DataStoreTypeRegistry
+ - list of DataStore types that are initialized with the plugin manager
+
+DataStore struct
+ - Session==preferred abstraction for datastore
+   - for example FileDataStore for a S3DataStore
+
+ - StoreReader interface
+     Get(path string, datapath string) (io.ReadCloser, error)
+
+ - StoreWriter interface 
+	    Put(srcReader io.Reader, destPath string, destDataPath string) (int, error)
+
+
+
+ - ConnectionDataStore: interface for DataStores that must initialize and external connection
+   - Connect(ds DataStore) (any, error)
+   - RawSession() any  //filesapi.FileStore for an S3 instance
+
+-----------------------------------
+Datastore ComputeCache
+
+//creates a cache if it doesn't exist or opens a compute cache
+ - GetComputeCache(path string) (ComputeCache,error)
+
+//writes a scalar attribute to the cache
+- PutAttribute(key string, value ComputeCacheAttrType) error
+
+//reads a scalar attribute from the cache
+- GetAttribute(key string, dest ComputeCacheAttrType) error
+
+//write a slice to the cache
+- Put(data []any, datapath string) error
+
+//read a slice from the cache
+- Get(datapath string, dest any) error
+
+//////
+- GetCache(input DataSourceOpInput)
+   - GetCacheAttribute
+   - PutCache(input PutOpInput)
+   - PutCacheAttribute()
+
+------------------------------------
+Payload
+  - IOManager
+  - Actions []Action
+
+Action
+  - IOManager
+  - Type string
+  - Description string
+
+
+IOManager
+ - Attributes
+    - Attributes
+    - Stores
+    - Inputs
+    - Outputs
+  - Methods
+    - GetDataSource(GetDsInput) (DataSource,error)
+    - GetInputDataSource
+    - GetOutputDataSource
+    - GetStore(name)
+    -> Store Type "Blob" (s3, azure blob, file systems)...default store type
+      - GetReader(input DataSourceOpInput) (io.Reader, error)
+      - Get(input DataSourceOpInput) ([]byte, error)
+      - Put(input PutOpInput) (int, error)
+      - Copy
+      - CopyFileToLocal(srcDataSourceName,pathkey,localpath)
+      - CopyFileToRemote(localPath, destDataSource, pathkey)
+    -> Store Type "Array" (tiledb/zarr)
+      - CreateArray() error ???b//creates an array with specific schema options
+      - GetArrayReader(input) (ArrayReader, error)
+      - GetArray(input GetComputeInput, dest any) error
+      - PutArray(input PutComputInput) (int,error)
+    -> Store Type "Record" (zarr, tiledb, rdbms)
+      - CreateTable() error ??? //creates a table with schema options
+      - GetRows(input) (RowReader, error)
+      - GetRecords(input GetComputeInput, dest any) error
+      - PutRecords(input PutComputInput) (int,error)
+    -> Store Type "Attribute"
+      - GetAttr
+      - PutAttr
+      - DeleteAttr
+
+    Store Interfaces:
+     - ConnectionDataStore
+     - StoreReader
+     - StoreWriter
+     - ArrayStore
+     - RecordStore
+     - AttributeStore
+
+
+
+/////////////////////////////
+US: i as a state prosecutor want to sue fema because they used the wrong boundary condition in a 
+    ras model and overinflated flows in an area and are ovechargin my constituents
+
+SP->Enginering Consultant->
+
+/my-basin
+  /simulations
+    /sim1
+      /events
+        /1
+          /ras
+            /manifest
+
+
+
+
+
+  
+   
+   
+
+
+
+//utility
+GetStoreAs[storeInterface](DataStores, name)
+
+
+PluginManager
+  - initialize
+    - set log format for each language
+  - SendMessage(message SendMessageInput) (SendMessageOutput,error)
+  - WriteToEventStore(EventStoreInput input) OnErrorResumeNext
+    - scalars, arrays (matrix), compound data types, key/value 
+
+
+  //EventStoreInterface
+    - WriteArray()
+    - ReadArray()
+    - WriteMatrix()
+    - ReadMatrix()
+
+    type ReadMatrixInput struct{
+      DataType:?
+      Buffer:
+      DataPath:
+    }
+
+onInit:
+ - Log ComputeID, EventID, ManifestId
+ - Log PayloadID
+
+{cc-log} {date} {time} {log-type} {log}
+{cc-log} {date} {time} {log-type} {log}
+
+ - log-types
+      INFO
+      ACTION
+  
+
+pm.GetFileByName(name,path)   ([]byte,error)
+pm.FileReaderbyName(name,path) (reader,error)
+
+should we have DataSource functions in addition to DataStore functions?
+should they just be pass through?
+
+
+
+
+Notes for Will:
+  - ccstore interface????
+      PutObject(input PutObjectInput) error
+	  PullObject(input PullObjectInput) error
+	  GetObject(input GetObjectInput) ([]byte, error)
+	  GetPayload() (Payload, error)
+	  SetPayload(p Payload) error
+	  RootPath() string
+	  HandlesDataStoreType(datasourcetype StoreType) bool
+  - error.go //why replace native error types?
+  - logger.go //Will wrap golang logger for implementation.  Am going to rewrite and use log vs printf
+  - status.go?
+    - think this gets removed.  Status is fuction of cloud dompute and I cazn't come up with a good reason to have this.
+    - internal progress is a function of Logging/Messaging
+
+
+
+EventStore
+  - WriteArray
+  - ReadArray
+  - WriteMatrix
+  - ReadMatrix
+  - WriteAttribute(name, value)
+
+  - need compound data type....
+
+
+* can dense array use string domain notation?
+
+
+
+
+
+  

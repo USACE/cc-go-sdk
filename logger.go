@@ -1,58 +1,97 @@
 package cc
 
 import (
-	"fmt"
-	"runtime"
-	"time"
+	"context"
+	"log/slog"
+	"os"
+
+	"github.com/google/uuid"
 )
 
-type Logger struct {
-	ErrorFilter ErrorLevel //i believe this will be global to the container each container having its own possible level (and compute having its own level too.)
-	Sender      string
+const (
+	LevelAction      = slog.Level(41)
+	LevelSendMessage = slog.Level(42)
+)
+
+var LevelNames = map[slog.Leveler]string{
+	LevelAction:      "ACTION",
+	LevelSendMessage: "SENDMESSAGE",
 }
 
-// write is just a placeholder for however we intend to implement logging by the sdk
-func (l Logger) writeError(log Error) error {
-	if l.ErrorFilter == DEBUG {
-		pc, file, line, _ := runtime.Caller(2)
-		funcName := runtime.FuncForPC(pc).Name()
-		fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
-	} else {
-		if log.ErrorLevel >= ERROR {
-			pc, file, line, _ := runtime.Caller(2)
-			funcName := runtime.FuncForPC(pc).Name()
-			fmt.Printf("%v issues %v at %v from file %v on line %v in method name %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), file, line, funcName, log.Error)
-		}
-		fmt.Printf("%v issues %v at %v\n\t%v\n", l.Sender, log.ErrorLevel.String(), time.Now(), log.Error)
+type MessageWriter interface {
+	Write(p []byte) (n int, err error)
+	Close()
+}
+
+type CcLoggerInput struct {
+	Compute       uuid.UUID
+	Event         uuid.UUID
+	Manifest      uuid.UUID
+	Payload       uuid.UUID
+	MessageWriter MessageWriter
+}
+
+type CcLogger struct {
+	input CcLoggerInput
+	*slog.Logger
+	messageLogger *slog.Logger
+}
+
+func NewCcLogger(input CcLoggerInput) *CcLogger {
+	stdOutLogger := slog.New(slog.NewJSONHandler(os.Stdout, ccLoggerOpts(slog.LevelDebug)))
+	var messageLogger *slog.Logger
+	if input.MessageWriter != nil {
+		messageLogger = slog.New(slog.NewJSONHandler(input.MessageWriter, ccLoggerOpts(LevelSendMessage)))
 	}
-	return nil
-}
-
-func (l Logger) write(log Message) error {
-	fmt.Printf("%v:%v\n\t%v\n", l.Sender, time.Now(), log.Message)
-	return nil
-}
-func (l Logger) reportStatus(status StatusReport) error {
-	fmt.Printf("%v:%v:%v\n\t%v percent complete\n", l.Sender, status.Status, time.Now(), status.Progress) //can we make sender an environment variable?
-	return nil
-}
-
-// SetLogLevel accepts a Level for messages.
-func (l *Logger) SetErrorFilter(logLevel ErrorLevel) {
-	l.ErrorFilter = logLevel
-}
-
-// Log accepts a message and manages the writing of messages that have levels that exceed or equal the instance level.
-func (l Logger) LogMessage(message Message) {
-	//this could go to a redis cache, sqs, or just to log files for cloud watch to manage. The point is a single struct and a single endpoint to manage consistent logging across plugins.
-	l.write(message)
-}
-func (l Logger) LogError(err Error) {
-	if l.ErrorFilter <= err.ErrorLevel {
-		//this could go to a redis cache, sqs, or just to log files for cloud watch to manage. The point is a single struct and a single endpoint to manage consistent logging across plugins.
-		l.writeError(err)
+	return &CcLogger{
+		input,
+		stdOutLogger,
+		messageLogger,
 	}
 }
-func (l Logger) ReportProgress(status StatusReport) {
-	l.reportStatus(status)
+
+func (l *CcLogger) Action(msg string, args ...slog.Attr) {
+	ctx := context.Background()
+	l.Log(ctx, LevelAction, msg)
+}
+
+func (l *CcLogger) SendMessage(channel string, msg string, args ...slog.Attr) {
+	ctx := context.Background()
+	attrs := toAny(args)
+	attrs = append(attrs, slog.Attr{
+		Key:   "channel",
+		Value: slog.StringValue(channel),
+	})
+	l.Log(ctx, LevelSendMessage, msg, attrs...)
+
+	//send to message handler if it exists
+	if l.messageLogger != nil {
+		l.messageLogger.Log(ctx, LevelSendMessage, msg, attrs...)
+	}
+}
+
+func toAny(attr []slog.Attr) []any {
+	size := len(attr)
+	a := make([]any, size)
+	for i := 0; i < size; i++ {
+		a[i] = attr[i]
+	}
+	return a
+}
+
+func ccLoggerOpts(cclevel slog.Level) *slog.HandlerOptions {
+	return &slog.HandlerOptions{
+		Level: cclevel,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				level := a.Value.Any().(slog.Level)
+				levelLabel, exists := LevelNames[level]
+				if !exists {
+					levelLabel = level.String()
+				}
+				a.Value = slog.StringValue(levelLabel)
+			}
+			return a
+		},
+	}
 }

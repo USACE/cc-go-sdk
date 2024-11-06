@@ -40,10 +40,10 @@ func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 		manifestId = os.Getenv(CcManifestId)
 		payloadId = os.Getenv(CcPayloadId)
 	}
-	awsconfig := buildS3Config(CcProfile)
+	awsconfig := BuildS3Config(CcProfile)
 	rootPath := os.Getenv(CcRootPath)
 	if rootPath == "" {
-		rootPath = remoteRootPath //set to default
+		rootPath = RemoteRootPath //set to default
 	}
 
 	fs, err := filestore.NewFileStore(awsconfig)
@@ -177,7 +177,7 @@ func (ws *S3CcStore) PullObject(input PullObjectInput) error {
 	return err
 }
 
-func buildS3Config(profile string) filestore.S3FSConfig {
+func BuildS3Config(profile string) filestore.S3FSConfig {
 	awsconfig := filestore.S3FSConfig{
 		Credentials: filestore.S3FS_Static{
 			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", profile, AwsAccessKeyId)),
