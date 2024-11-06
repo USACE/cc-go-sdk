@@ -13,10 +13,14 @@ import (
 	tiledb "github.com/TileDB-Inc/TileDB-Go"
 )
 
+/*
+@TODO: NOTES:add gzip filters
+*/
+
 const (
 	defaultAttrName     string = "a"
 	defaultMetadataPath string = "/scalars"
-	defaultTileExtent   int64  = 4
+	defaultTileExtent   int64  = 256
 )
 
 type TileDbEventStore struct {
@@ -369,12 +373,6 @@ func getOpBufferRange(br []int64, domain []int64) []int64 {
 }
 
 func (tdb *TileDbEventStore) createSimpleArray(input CreateSimpleArrayInput) error {
-	//tileExtent := defaultTileExtent
-	//for _, d := range input.Dims {
-	//	if d < tileExtent {
-	//		tileExtent = d
-	//	}
-	//}
 	dimensions := make([]ArrayDimension, len(input.Dims))
 	for i := 0; i < len(input.Dims); i++ {
 		tileExtent := defaultTileExtent

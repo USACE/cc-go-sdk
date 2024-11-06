@@ -1,5 +1,14 @@
 package cc
 
+//event_store defines the interfaces and implements methods for supporting
+//"cloud" native record and multidemesional chunked stores such as tiledb, zarr, and parquet
+//due to the diverse nature of these stores, multiple semantics are defined:
+// - Simple Array Store: This is a simple store for storing one or two dimesions arrays
+//                 consisting of a single numeric value. For example grids or basic arrays
+// - Multidimensional Array Stores: Chunked multidimensional arrays with any number of attributes
+//                 at a given index
+// - Record Store: A one dimensional array of records
+
 import (
 	"bytes"
 	"errors"
@@ -47,6 +56,9 @@ const (
 	ATTR_STRUCT_TAG string = "eventstore"
 )
 
+var MAXDIMENSION int64 = 9223372036854775807 //@TODO this is probably a bad idea
+var defaultTileExtent int64 = 256            //@TODO is this necessary?  It is repeated for TILEDB!
+
 type MultiDimensionalArrayStore interface {
 	CreateArray(input CreateArrayInput) error
 	PutArray(input PutArrayInput) error
@@ -60,16 +72,6 @@ type SimpleArrayStore interface {
 	PutSimpleArray(input PutSimpleArrayInput) error
 	GetSimpleArray(input GetSimpleArrayInput) (*ArrayResult, error)
 }
-
-/*
-NOTES:
- - add gzip filters
-*/
-
-// MatrixTypeSupport
-//type ArrayStoreDataType interface {
-//	float32 | float64 | int64 | int32 | int16 | int8 | uint8 | string
-//}
 
 type CreateSimpleArrayInput struct {
 	DataType ATTR_TYPE
@@ -109,8 +111,6 @@ type CreateArrayInput struct {
 	ArrayType  ARRAY_TYPE
 	CellLayout LAYOUT_ORDER
 	TileLayout LAYOUT_ORDER
-	//ArrayLayout LAYOUT_ORDER
-
 }
 
 type ArrayAttribute struct {
@@ -171,7 +171,6 @@ type ArrayResult struct {
 	Schema  ArraySchema
 	row     int
 	Attrs   []string
-	//Size   int
 }
 
 func (ar *ArrayResult) GetRow(rowindex int, attrindex int, dest any) {
@@ -276,9 +275,8 @@ func tagAsPositionMap(tag string, data interface{}) map[string]int {
 	return tagmap
 }
 
-// //////////////////
 ////////////////////////////////////
-//ArrayConfigData  //@TODO rename to record config
+//ArrayConfigData
 ////////////////////////////////////
 
 func StructSliceToArrayConfig(data any) (ArrayAttrSet, error) {
@@ -306,8 +304,8 @@ func StructSliceToArrayConfig(data any) (ArrayAttrSet, error) {
 }
 
 func buildBuffers(structType reflect.Type) (ArrayAttrSet, error) {
-	tag := "eventstore"
-	bd := []ArrayAttrData{} //BufferDataSet is an alias for []BufferData
+	tag := ATTR_STRUCT_TAG
+	aad := []ArrayAttrData{}
 	fieldNum := structType.NumField()
 	for i := 0; i < fieldNum; i++ {
 		field := structType.Field(i)
@@ -321,13 +319,13 @@ func buildBuffers(structType reflect.Type) (ArrayAttrSet, error) {
 					AttrType:       attrtype,
 					Buffer:         newSlice.Interface(),
 				}
-				bd = append(bd, b)
+				aad = append(aad, b)
 			} else {
 				return nil, fmt.Errorf("unsupported golang type: %s", field.Type.Kind())
 			}
 		}
 	}
-	return bd, nil
+	return aad, nil
 }
 
 type ArrayAttrData struct {
@@ -338,13 +336,7 @@ type ArrayAttrData struct {
 	Offsets        []uint64
 }
 
-//	type ArrayConfig struct {
-//		ArrayDataset ArrayAttrSet
-//	}
 type ArrayAttrSet []ArrayAttrData
-
-var MAXDIMENSION int64 = 9223372036854775807 //@TODO this is a bad idea
-var defaultTileExtent int64 = 16             //@TODO is this too specific to tiledb
 
 func getBufferLen(bd ArrayAttrData) int64 {
 	if len(bd.Offsets) > 0 {
@@ -370,13 +362,12 @@ func (bd ArrayAttrSet) BuildCreateArrayInput(arrayPath string) (CreateArrayInput
 	if size == 0 {
 		size = MAXDIMENSION
 	}
-	//
 
 	input.Dimensions = []ArrayDimension{
 		{
 			Name:          "d1",
 			DimensionType: DIMENSION_INT,
-			Domain:        []int64{1, size}, //@TODO.  Is this limited to 1D arrays, and how to i get siz4e.  Switch to sparse!
+			Domain:        []int64{1, size},
 			TileExtent:    defaultTileExtent,
 		},
 	}
