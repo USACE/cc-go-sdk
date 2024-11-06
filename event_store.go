@@ -1,6 +1,8 @@
 package cc
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 )
@@ -8,7 +10,7 @@ import (
 type ARRAY_TYPE int
 type ATTR_TYPE int
 type DIMENSION_TYPE int
-type ARRAY_ORDER int
+type LAYOUT_ORDER int
 
 // used to get types for simple arrays.  disallow variable length types in simple arrays
 var Golang2AttrTypeMap map[reflect.Kind]ATTR_TYPE = map[reflect.Kind]ATTR_TYPE{
@@ -29,9 +31,9 @@ const (
 	ARRAY_DENSE  ARRAY_TYPE = 0 //default array type
 	ARRAY_SPARSE ARRAY_TYPE = 1
 
-	ARRAY_ORDER_ROWMAJOR  = 0 //default ordering
-	ARRAY_ORDER_COLMAJOR  = 1
-	ARRAY_ORDER_UNORDERED = 2
+	ROWMAJOR  LAYOUT_ORDER = 0 //default layout order
+	COLMAJOR  LAYOUT_ORDER = 1
+	UNORDERED LAYOUT_ORDER = 2
 
 	ATTR_INT64   ATTR_TYPE = 0
 	ATTR_INT32   ATTR_TYPE = 1
@@ -44,15 +46,6 @@ const (
 
 	ATTR_STRUCT_TAG string = "eventstore"
 )
-
-type CcCache interface {
-	PutArray()
-	GetArray()
-	DeleteArray()
-	PutAttribute()
-	GetAttribute()
-	DeleteAttribute()
-}
 
 type MultiDimensionalArrayStore interface {
 	CreateArray(input CreateArrayInput) error
@@ -82,8 +75,11 @@ type CreateSimpleArrayInput struct {
 	DataType ATTR_TYPE
 	//represents the size of each dimension
 	//there should be one value in the array for each dimension
-	Dims      []int64
-	ArrayPath string
+	Dims       []int64
+	ArrayPath  string
+	CellLayout LAYOUT_ORDER
+	TileLayout LAYOUT_ORDER
+	TileExtent []int64
 }
 
 type PutSimpleArrayInput struct {
@@ -91,22 +87,30 @@ type PutSimpleArrayInput struct {
 
 	//we insert the entire array on a simple array put
 	//so the dims are the same as a create and represent the size of each dimension
-	Dims     []int64
-	DataPath string
+	Dims       []int64
+	DataPath   string
+	CellLayout LAYOUT_ORDER
+	TileLayout LAYOUT_ORDER
+	PutLayout  LAYOUT_ORDER
+	TileExtent []int64
 }
 
 type GetSimpleArrayInput struct {
-	DataPath string
-	XRange   []int64 //optional
-	YRange   []int64 //optional
+	DataPath    string
+	XRange      []int64      //optional
+	YRange      []int64      //optional
+	SearchOrder LAYOUT_ORDER //optional
 }
 
 type CreateArrayInput struct {
-	Attributes  []ArrayAttribute
-	Dimensions  []ArrayDimension
-	ArrayPath   string
-	ArrayType   ARRAY_TYPE
-	ArrayLayout ARRAY_ORDER
+	Attributes []ArrayAttribute
+	Dimensions []ArrayDimension
+	ArrayPath  string
+	ArrayType  ARRAY_TYPE
+	CellLayout LAYOUT_ORDER
+	TileLayout LAYOUT_ORDER
+	//ArrayLayout LAYOUT_ORDER
+
 }
 
 type ArrayAttribute struct {
@@ -127,6 +131,7 @@ type PutArrayInput struct {
 	DataPath    string
 	ArrayType   ARRAY_TYPE
 	Coords      [][]int64
+	PutLayout   LAYOUT_ORDER
 }
 
 type PutArrayBuffer struct {
@@ -139,6 +144,7 @@ type GetArrayInput struct {
 	Attrs       []string
 	DataPath    string
 	BufferRange []int64
+	SearchOrder LAYOUT_ORDER
 }
 
 type ArraySchema struct {
@@ -262,4 +268,246 @@ func tagAsPositionMap(tag string, data interface{}) map[string]int {
 		}
 	}
 	return tagmap
+}
+
+// //////////////////
+////////////////////////////////////
+//ArrayConfigData  //@TODO rename to record config
+////////////////////////////////////
+
+func StructSliceToArrayConfig(data any) (ArrayAttrSet, error) {
+	dataType := reflect.TypeOf(data)
+	dataVal := reflect.ValueOf(data)
+	if dataType.Kind() == reflect.Ptr {
+		dataType = dataType.Elem()
+		dataVal = dataVal.Elem()
+	}
+
+	bd, err := buildBuffers(dataType.Elem())
+	if err != nil {
+		return bd, err
+	}
+	size := dataVal.Len()
+	for i := 0; i < size; i++ {
+		val := dataVal.Index(i)
+		for j, attr := range bd {
+			field := val.Field(attr.StructPosition)
+			bd[j].Buffer = reflect.Append(reflect.ValueOf(attr.Buffer), field).Interface()
+		}
+	}
+	bd.HandleStrings()
+	return bd, nil
+}
+
+func buildBuffers(structType reflect.Type) (ArrayAttrSet, error) {
+	tag := "eventstore"
+	bd := []ArrayAttrData{} //BufferDataSet is an alias for []BufferData
+	fieldNum := structType.NumField()
+	for i := 0; i < fieldNum; i++ {
+		field := structType.Field(i)
+		if tagval, ok := field.Tag.Lookup(tag); ok {
+			sliceType := reflect.SliceOf(field.Type)
+			newSlice := reflect.MakeSlice(sliceType, 0, 0)
+			if attrtype, ok := Golang2AttrTypeMap[field.Type.Kind()]; ok {
+				b := ArrayAttrData{
+					AttrName:       tagval,
+					StructPosition: i,
+					AttrType:       attrtype,
+					Buffer:         newSlice.Interface(),
+				}
+				bd = append(bd, b)
+			} else {
+				return nil, fmt.Errorf("unsupported golang type: %s", field.Type.Kind())
+			}
+		}
+	}
+	return bd, nil
+}
+
+type ArrayAttrData struct {
+	AttrName       string
+	StructPosition int
+	AttrType       ATTR_TYPE
+	Buffer         any
+	Offsets        []uint64
+}
+
+//	type ArrayConfig struct {
+//		ArrayDataset ArrayAttrSet
+//	}
+type ArrayAttrSet []ArrayAttrData
+
+var MAXDIMENSION int64 = 9223372036854775807 //@TODO this is a bad idea
+var defaultTileExtent int64 = 16             //@TODO is this too specific to tiledb
+
+func getBufferLen(bd ArrayAttrData) int64 {
+	if len(bd.Offsets) > 0 {
+		return int64(len(bd.Offsets))
+	}
+	return int64(reflect.ValueOf(bd.Buffer).Len())
+}
+
+func (bd ArrayAttrSet) BuildCreateArrayInput(arrayPath string) (CreateArrayInput, error) {
+	input := CreateArrayInput{}
+	input.ArrayPath = arrayPath
+	attributes := make([]ArrayAttribute, len(bd))
+	for i, buf := range bd {
+		attributes[i] = ArrayAttribute{
+			Name:     buf.AttrName,
+			DataType: buf.AttrType,
+		}
+	}
+	input.Attributes = attributes
+
+	//get length of buffer
+	var size int64 = getBufferLen(bd[0])
+	if size == 0 {
+		size = MAXDIMENSION
+	}
+	//
+
+	input.Dimensions = []ArrayDimension{
+		{
+			Name:          "d1",
+			DimensionType: DIMENSION_INT,
+			Domain:        []int64{1, size}, //@TODO.  Is this limited to 1D arrays, and how to i get siz4e.  Switch to sparse!
+			TileExtent:    defaultTileExtent,
+		},
+	}
+
+	return input, nil
+}
+
+func (bd ArrayAttrSet) BuildPutArrayInput(arrayPath string, arrayType ARRAY_TYPE) PutArrayInput {
+
+	pabs := make([]PutArrayBuffer, len(bd))
+	for i, buf := range bd {
+		pabs[i] = PutArrayBuffer{
+			AttrName: buf.AttrName,
+			Buffer:   buf.Buffer,
+			Offsets:  buf.Offsets,
+		}
+	}
+
+	if arrayType == ARRAY_SPARSE {
+		bufSize := getBufferLen(bd[0])
+		dbuf := make([]int64, bufSize)
+		for i := 1; i <= int(bufSize); i++ {
+			dbuf[i-1] = int64(i)
+		}
+		pabs = append(pabs, PutArrayBuffer{
+			AttrName: "d1",
+			Buffer:   dbuf,
+		})
+	}
+
+	subarraySize := reflect.ValueOf(bd[1].Buffer).Len()
+	return PutArrayInput{
+		Buffers:     pabs,
+		BufferRange: []int64{1, int64(subarraySize)},
+		DataPath:    arrayPath,
+		ArrayType:   arrayType,
+	}
+}
+
+func (bd ArrayAttrSet) AttributNames() []string {
+	attributes := make([]string, len(bd))
+	for i, buf := range bd {
+		attributes[i] = buf.AttrName
+	}
+	return attributes
+}
+
+func (bd ArrayAttrSet) HandleStrings() {
+	for i, buf := range bd {
+		if buf.AttrType == ATTR_STRING {
+			oldSlice := reflect.ValueOf(buf.Buffer)
+			sliceLen := oldSlice.Len()
+			var newBuff bytes.Buffer
+			offsets := make([]uint64, sliceLen)
+			offsetIndex := 0
+			for j := 0; j < sliceLen; j++ {
+				oldVal := oldSlice.Index(j)
+				newBytes := []byte(oldVal.String())
+				newBuff.Write(newBytes)
+				offsets[j] = uint64(offsetIndex)
+				offsetIndex += len(newBytes)
+			}
+			bd[i].Buffer = newBuff.Bytes()
+			bd[i].Offsets = offsets
+		}
+	}
+}
+
+type Recordset struct {
+	buffer    any
+	bds       ArrayAttrSet
+	storename string
+	datapath  string
+	//indexfield string
+	pm *PluginManager
+
+	ArrayType  ARRAY_TYPE   //optional: default is dense array
+	ArrayOrder LAYOUT_ORDER //optional: default is row ordering
+}
+
+// buffer is a pointer to a slice of a struct
+func NewEventStoreRecordset(pm *PluginManager, buffer any, storename string, datapath string) (*Recordset, error) {
+	buffData, err := StructSliceToArrayConfig(buffer)
+	if err != nil {
+		return nil, err
+	}
+	return &Recordset{
+		pm:        pm,
+		buffer:    buffer,
+		bds:       buffData,
+		datapath:  datapath,
+		storename: storename,
+		//indexfield: indexfield,
+	}, nil
+}
+
+func (rs *Recordset) Create() error {
+	tdb, err := rs.pm.GetStore(rs.storename)
+	if err != nil {
+		return err
+	}
+	if mds, ok := tdb.Session.(MultiDimensionalArrayStore); ok {
+		input, _ := rs.bds.BuildCreateArrayInput(rs.datapath)
+		return mds.CreateArray(input)
+	}
+	return errors.New("store does not support multi dimesional arrays")
+}
+
+func (rs *Recordset) Write(buff any) error {
+	tdb, err := rs.pm.GetStore(rs.storename)
+	if err != nil {
+		return err
+	}
+	if mds, ok := tdb.Session.(MultiDimensionalArrayStore); ok {
+		input := rs.bds.BuildPutArrayInput(rs.datapath, ARRAY_DENSE) //@TODO check array type for all BuildPutArray
+		return mds.PutArray(input)
+	}
+	return errors.New("store does not support multi dimesional arrays")
+}
+
+func (rs *Recordset) Read(recrange ...int64) (*ArrayResult, error) {
+	bufferRange := []int64{}
+	if len(recrange) == 2 {
+		bufferRange = []int64{recrange[0], recrange[1]}
+	}
+	tdb, err := rs.pm.GetStore(rs.storename)
+	if err != nil {
+		return nil, err
+	}
+	if mds, ok := tdb.Session.(MultiDimensionalArrayStore); ok {
+		input := GetArrayInput{
+			DataPath:    rs.datapath,
+			BufferRange: bufferRange,
+			Attrs:       rs.bds.AttributNames(),
+		}
+
+		return mds.GetArray(input)
+	}
+	return nil, errors.New("store does not support multi dimesional arrays")
 }
