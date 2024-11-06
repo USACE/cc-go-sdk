@@ -199,6 +199,12 @@ func (ar *ArrayResult) GetColumn(colindex int, attrindex int, dest any) {
 }
 
 func (ar *ArrayResult) Size() int {
+	//handle sparse array
+	if len(ar.Domains) > 0 {
+		return len(ar.Domains[0].([]int64))
+	}
+
+	//not a sparse array, calculate the size
 	br := ar.Range
 	var size int = 1
 	for i := 0; i < len(br); i += 2 {
