@@ -34,9 +34,8 @@ var maxretry int = 100
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
-	ws         CcStore
-	manifestId string
-	logger     Logger
+	ccStore CcStore
+	Logger  *CcLogger
 	Payload
 }
 
@@ -50,48 +49,38 @@ func InitPluginManagerWithConfig(config PluginManagerConfig) (*PluginManager, er
 }
 
 func InitPluginManager() (*PluginManager, error) {
+	manifestId := os.Getenv(CcManifestId)
+	payloadId := os.Getenv(CcPayloadId)
 	registerStoreTypes()
 	rx, _ = regexp.Compile(substitutionRegex)
 	var manager PluginManager
-	sender := os.Getenv(CcPluginDefinition) //@TODO what is this used for?
-	manager.logger = Logger{
-		ErrorFilter: INFO,
-		Sender:      sender,
-	}
-	manager.manifestId = os.Getenv(CcManifestId) //consider removing this from the s3store - passing a reference
+	manager.Logger = NewCcLogger(CcLoggerInput{manifestId, payloadId, nil})
 	s3Store, err := NewCcStore()
 	if err != nil {
-		manager.logger.LogError(Error{
-			ErrorLevel: INFO,
-			Error:      "Unable to load the primary Compute-Store",
-		})
 		return nil, err
 	}
-	manager.ws = s3Store
+	manager.ccStore = s3Store
 	payload, err := s3Store.GetPayload()
-
 	if err != nil {
-		manager.logger.LogError(Error{
-			ErrorLevel: INFO,
-			Error:      fmt.Sprintf("Warning: Unable to load the payload: %s\n", err),
-		})
-	} else {
-		manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
-		manager.Actions = payload.Actions
-		for i, ds := range manager.Stores {
-			newInstance, err := DataStoreTypeRegistry.New(ds.StoreType)
+		return nil, err
+	}
+
+	manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
+	manager.Actions = payload.Actions
+	for i, ds := range manager.Stores {
+		newInstance, err := DataStoreTypeRegistry.New(ds.StoreType)
+		if err != nil {
+			return nil, err
+		}
+		if cds, ok := newInstance.(ConnectionDataStore); ok {
+			conn, err := cds.Connect(ds)
 			if err != nil {
 				return nil, err
 			}
-			if cds, ok := newInstance.(ConnectionDataStore); ok {
-				conn, err := cds.Connect(ds)
-				if err != nil {
-					return nil, err
-				}
-				manager.Stores[i].Session = conn
-			}
+			manager.Stores[i].Session = conn
 		}
 	}
+
 	err = manager.substitutePathVariables()
 	return &manager, err
 }

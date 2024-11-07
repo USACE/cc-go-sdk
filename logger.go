@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -24,10 +22,8 @@ type MessageWriter interface {
 }
 
 type CcLoggerInput struct {
-	Compute       uuid.UUID
-	Event         uuid.UUID
-	Manifest      uuid.UUID
-	Payload       uuid.UUID
+	Manifest      string
+	Payload       string
 	MessageWriter MessageWriter
 }
 
@@ -61,6 +57,14 @@ func (l *CcLogger) SendMessage(channel string, msg string, args ...slog.Attr) {
 	attrs = append(attrs, slog.Attr{
 		Key:   "channel",
 		Value: slog.StringValue(channel),
+	})
+	attrs = append(attrs, slog.Attr{
+		Key:   "manifest",
+		Value: slog.StringValue(l.input.Manifest),
+	})
+	attrs = append(attrs, slog.Attr{
+		Key:   "payload",
+		Value: slog.StringValue(l.input.Payload),
 	})
 	l.Log(ctx, LevelSendMessage, msg, attrs...)
 

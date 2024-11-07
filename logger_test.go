@@ -10,11 +10,11 @@ import (
 
 func TestLogger(t *testing.T) {
 	ctx := context.Background()
-	compute := uuid.New()
-	event := uuid.New()
+	//compute := uuid.New()
+	//event := uuid.New()
 	manifest := uuid.New()
 	payload := uuid.New()
-	logger := NewCcLogger(CcLoggerInput{compute, event, manifest, payload, nil})
+	logger := NewCcLogger(CcLoggerInput{manifest.String(), payload.String(), nil})
 	logger.Log(ctx, LevelAction, "My Message")
 	logger.Info("TEST Info")
 	logger.Debug("TEST Debug")
