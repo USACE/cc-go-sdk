@@ -75,7 +75,7 @@ func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
 			return ds, nil
 		}
 	}
-	return DataSource{}, errors.New(fmt.Sprintf("Data source %s not found", input.DsName))
+	return DataSource{}, errors.New(fmt.Sprintf("data source %s not found", input.DsName))
 }
 
 func (im *IOManager) GetInputDataSource(name string) (DataSource, error) {
@@ -86,12 +86,15 @@ func (im *IOManager) GetOutputDataSource(name string) (DataSource, error) {
 	return im.GetDataSource(GetDsInput{DataSourceOutput, name})
 }
 
-func (im *IOManager) GetReader(input DataSourceOpInput) (io.Reader, error) {
+func (im *IOManager) GetReader(input DataSourceOpInput) (io.ReadCloser, error) {
 	dataSource, err := im.GetInputDataSource(input.DataSourceName)
 	if err != nil {
 		return nil, err
 	}
 	dataStore, err := im.GetStore(dataSource.StoreName)
+	if err != nil {
+		return nil, err
+	}
 	if readerStore, ok := dataStore.Session.(StoreReader); ok {
 		path := dataSource.Paths[input.PathKey]
 		datapath := ""
@@ -100,7 +103,7 @@ func (im *IOManager) GetReader(input DataSourceOpInput) (io.Reader, error) {
 		}
 		return readerStore.Get(path, datapath)
 	}
-	return nil, fmt.Errorf("Data Store %s session does not implement a StoreReader", dataStore.Name)
+	return nil, fmt.Errorf("data store %s session does not implement a StoreReader", dataStore.Name)
 }
 
 func (im *IOManager) Get(input DataSourceOpInput) ([]byte, error) {
