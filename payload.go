@@ -27,6 +27,53 @@ type Action struct {
 	Description string `json:"description"`
 }
 
+// -----------------------------------------------
+// Wrapped IOManager functions
+// -----------------------------------------------
+
+func (a Action) GetStore(name string) (*DataStore, error) {
+	return a.IOManager.GetStore(name)
+}
+
+func (a Action) GetDataSource(input GetDsInput) (DataSource, error) {
+	return a.IOManager.GetDataSource(input)
+}
+
+func (a Action) GetInputDataSource(name string) (DataSource, error) {
+	return a.IOManager.GetInputDataSource(name)
+}
+
+func (a Action) GetOutputDataSource(name string) (DataSource, error) {
+	return a.IOManager.GetOutputDataSource(name)
+}
+
+func (a Action) GetReader(input DataSourceOpInput) (io.ReadCloser, error) {
+	return a.IOManager.GetReader(input)
+}
+
+func (a Action) Get(input DataSourceOpInput) ([]byte, error) {
+	return a.IOManager.Get(input)
+}
+
+func (a Action) Put(input PutOpInput) (int, error) {
+	return a.IOManager.Put(input)
+}
+
+func (a Action) Copy(src DataSourceOpInput, dest DataSourceOpInput) error {
+	return a.IOManager.Copy(src, dest)
+}
+
+func (a Action) CopyFileToLocal(dsName string, pathkey string, dataPathKey string, localPath string) error {
+	return a.IOManager.CopyFileToLocal(dsName, pathkey, dataPathKey, localPath)
+}
+
+func (a Action) CopyFileToRemote(input CopyFileToRemoteInput) error {
+	return a.IOManager.CopyFileToRemote(input)
+}
+
+// -----------------------------------------------
+// IOManager
+// -----------------------------------------------
 type IOManager struct {
 	Attributes PayloadAttributes `json:"attributes,omitempty"`
 	Stores     []DataStore       `json:"stores"`
@@ -75,7 +122,7 @@ func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
 			return ds, nil
 		}
 	}
-	return DataSource{}, errors.New(fmt.Sprintf("data source %s not found", input.DsName))
+	return DataSource{}, fmt.Errorf("data source %s not found", input.DsName)
 }
 
 func (im *IOManager) GetInputDataSource(name string) (DataSource, error) {
@@ -272,60 +319,6 @@ func (im *IOManager) CopyFileToRemote(input CopyFileToRemoteInput) error {
 
 	return fmt.Errorf("Data Store %s session does not implement a StoreWriter", store.Name)
 }
-
-func (im *IOManager) CopyFileToRemoteOld(dsDestName string, pathkey string, dataPathKey string, localPath string) error {
-	ds, err := im.GetDataSource(GetDsInput{DataSourceOutput, dsDestName})
-	if err != nil {
-		return err
-	}
-
-	store, err := im.GetStore(ds.StoreName)
-	if err != nil {
-		return err
-	}
-
-	if writer, ok := store.Session.(StoreWriter); ok {
-		reader, err := os.Open(localPath)
-		if err != nil {
-			return err
-		}
-
-		path := ds.Paths[pathkey]
-		datapath := ""
-		if dataPathKey != "" {
-			datapath = ds.DataPaths[dataPathKey]
-		}
-
-		_, err = writer.Put(reader, path, datapath)
-		return err
-	}
-
-	return fmt.Errorf("Data Store %s session does not implement a StoreWriter", ds.StoreName)
-}
-
-/*
-func (im *IOManager) fileReader(ds DataSource, pathkey string) (io.ReadCloser, error) {
-	store, err := GetStoreAs[FileDataStore](im, ds.StoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	reader, err := store.Get(ds.Paths[pathkey])
-
-	return reader, err
-}
-*/
-
-/*
-func (im *IOManager) GetReader(dataSourceName string, filePathKey string, dataPathKey string) (io.Reader, error) {
-	ds,err:=im.GetDataSource(GetDsInput{DataSourceInput,dataSourceName})
-	if err!=nil{
-		return nil,err
-	}
-	ds.
-
-}
-*/
 
 func GetStoreAs[T any](mgr *IOManager, name string) (T, error) {
 	for _, s := range mgr.Stores {

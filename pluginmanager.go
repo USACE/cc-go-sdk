@@ -3,6 +3,7 @@ package cc
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
@@ -98,6 +99,50 @@ func (pm PluginManager) EventNumber() int {
 		eventNumber = -1
 	}
 	return eventNumber
+}
+
+// -----------------------------------------------
+// Wrapped IOManager functions
+// -----------------------------------------------
+
+func (pm PluginManager) GetStore(name string) (*DataStore, error) {
+	return pm.IOManager.GetStore(name)
+}
+
+func (pm PluginManager) GetDataSource(input GetDsInput) (DataSource, error) {
+	return pm.IOManager.GetDataSource(input)
+}
+
+func (pm PluginManager) GetInputDataSource(name string) (DataSource, error) {
+	return pm.IOManager.GetInputDataSource(name)
+}
+
+func (pm PluginManager) GetOutputDataSource(name string) (DataSource, error) {
+	return pm.IOManager.GetOutputDataSource(name)
+}
+
+func (pm PluginManager) GetReader(input DataSourceOpInput) (io.ReadCloser, error) {
+	return pm.IOManager.GetReader(input)
+}
+
+func (pm PluginManager) Get(input DataSourceOpInput) ([]byte, error) {
+	return pm.IOManager.Get(input)
+}
+
+func (pm PluginManager) Put(input PutOpInput) (int, error) {
+	return pm.IOManager.Put(input)
+}
+
+func (pm PluginManager) Copy(src DataSourceOpInput, dest DataSourceOpInput) error {
+	return pm.IOManager.Copy(src, dest)
+}
+
+func (pm PluginManager) CopyFileToLocal(dsName string, pathkey string, dataPathKey string, localPath string) error {
+	return pm.IOManager.CopyFileToLocal(dsName, pathkey, dataPathKey, localPath)
+}
+
+func (pm PluginManager) CopyFileToRemote(input CopyFileToRemoteInput) error {
+	return pm.IOManager.CopyFileToRemote(input)
 }
 
 // -----------------------------------------------
@@ -206,183 +251,3 @@ func parameterSubstitute(param interface{}, payloadAttr map[string]any) (string,
 		return "", errors.New("Invalid parameter type")
 	}
 }
-
-/*
-func (pm PluginManager) GetFile(ds DataSource, path int) ([]byte, error) {
-	store, err := GetStoreSession[FileDataStore](&pm, ds.StoreName)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	reader, err := store.Get(ds.Paths[path])
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.ReadFrom(reader)
-	return buf.Bytes(), err
-}
-
-func (pm PluginManager) GetFileByName(dataSourceName string, path int) ([]byte, error) {
-	ds, err := pm.GetDataSource(IoTypeInput, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-
-	store, err := GetStoreSession[FileDataStore](&pm, ds.StoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	reader, err := store.Get(ds.Paths[path])
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.ReadFrom(reader)
-	return buf.Bytes(), err
-}
-*/
-
-/*
-
-func (pm PluginManager) FileWriter(srcReader io.Reader, destDs DataSource, destPath int) error {
-	store, err := GetStoreSession[FileDataStore](&pm, destDs.StoreName)
-	if err != nil {
-		return err
-	}
-	return store.Put(srcReader, destDs.Paths[destPath])
-}
-
-func (pm PluginManager) FileReader(ds DataSource, path int) (io.ReadCloser, error) {
-	store, err := GetStoreSession[FileDataStore](&pm, ds.StoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	reader, err := store.Get(ds.Paths[path])
-
-	return reader, err
-}
-
-/*
-
-
-
-
-
-func (pm PluginManager) ReportProgress(status StatusReport) {
-	pm.logger.ReportProgress(status)
-}
-func (pm PluginManager) LogMessage(message Message) {
-	pm.logger.LogMessage(message)
-}
-func (pm PluginManager) LogError(err Error) {
-	pm.logger.LogError(err)
-}
-
-func getStore(pm *PluginManager, name string) (*DataStore, error) {
-	for _, s := range pm.payload.Stores {
-		if s.Name == name {
-			return &s, nil
-		}
-	}
-	return nil, errors.New(fmt.Sprintf("Store %s does not exist.\n", name))
-}
-
-func getSession[T any](pm *PluginManager, name string) (T, error) {
-	for _, s := range pm.payload.Stores {
-		if s.Name == name {
-			return s.Session.(T), nil
-		}
-	}
-	var store T
-	return store, errors.New(fmt.Sprintf("Session %s does not exist.\n", name))
-}
-
-func findDs(name string, sources []DataSource) (DataSource, error) {
-	for _, ds := range sources {
-		if ds.Name == name {
-			return ds, nil
-		}
-	}
-	return DataSource{}, errors.New(fmt.Sprintf("Invalid DataSource Name: %s\n", name))
-}
-
-func (pm PluginManager) FileReaderByName(dataSourceName string, path int) (io.ReadCloser, error) {
-	ds, err := findDs(dataSourceName, pm.payload.Inputs)
-	if err != nil {
-		return nil, err
-	}
-
-	store, err := getSession[FileDataStore](&pm, ds.StoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	reader, err := store.Get(ds.Paths[path])
-
-	return reader, err
-}
-*/
-
-/*
-METHODS TO REMOVE!!!!!
-func (pm PluginManager) CopyToLocal(ds DataSource, pathIndex int, localPath string) error {
-	reader, err := pm.FileReader(ds, pathIndex)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
-	writer, err := os.Create(localPath)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
-	_, err = io.Copy(writer, reader)
-	return err
-}
-
-func (pm PluginManager) CopyToRemote(localpath string, ds DataSource, pathindex int) error {
-	reader, err := os.Open(localpath)
-	if err != nil {
-		return err
-	}
-	return pm.FileWriter(reader, ds, pathindex)
-}
-
-// GetPayload produces a Payload for the current manifestId of the environment from S3 based on the remoteRootPath set in the configuration of the environment.
-func (pm PluginManager) GetPayload() Payload {
-	return pm.payload
-}
-
-func (pm PluginManager) GetInputDataSource(name string) (DataSource, error) {
-	return findDs(name, pm.payload.Inputs)
-}
-
-func (pm PluginManager) GetOutputDataSource(name string) (DataSource, error) {
-	return findDs(name, pm.payload.Outputs)
-}
-
-func (pm PluginManager) GetInputDataSources() []DataSource {
-	return pm.payload.Inputs
-}
-
-func (pm PluginManager) GetOutputDataSources() []DataSource {
-	return pm.payload.Outputs
-}
-
-func (pm PluginManager) GetStore(name string) (*DataStore, error) {
-	return getStore(&pm, name)
-}
-
-func (pm PluginManager) PutFile(data []byte, ds DataSource, path int) error {
-	store, err := getSession[FileDataStore](&pm, ds.StoreName)
-	if err != nil {
-		return err
-	}
-	//reader := io.NopCloser(bytes.NewReader(data))
-	reader := bytes.NewReader(data)
-	return store.Put(reader, ds.Paths[path])
-}
-*/
