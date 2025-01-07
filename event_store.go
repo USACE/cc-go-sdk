@@ -73,6 +73,12 @@ type SimpleArrayStore interface {
 	GetSimpleArray(input GetSimpleArrayInput) (*ArrayResult, error)
 }
 
+type MetadataStore interface {
+	GetMetadata(key string, dest any) error
+	PutMetadata(key string, val any) error
+	DeleteMetadata(key string) error
+}
+
 type CreateSimpleArrayInput struct {
 	DataType ATTR_TYPE
 	//represents the size of each dimension

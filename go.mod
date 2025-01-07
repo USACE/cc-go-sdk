@@ -1,6 +1,8 @@
 module github.com/usace/cc-go-sdk
 
-go 1.18
+go 1.21
+
+toolchain go1.23.4
 
 //replace github.com/usace/filesapi => /Users/rdcrlrsg/Projects/programming/go/src/github.com/usace/filesapi
 require (
@@ -30,8 +32,17 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.6 // indirect
 	github.com/aws/smithy-go v1.20.2 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/eclipse/paho.golang v0.22.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
+	golang.org/x/net v0.27.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

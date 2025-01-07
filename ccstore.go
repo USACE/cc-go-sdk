@@ -33,6 +33,7 @@ type CcStore interface {
 	RootPath() string
 	HandlesDataStoreType(datasourcetype StoreType) bool
 }
+
 type PutObjectInput struct {
 	FileName             string
 	FileExtension        string
