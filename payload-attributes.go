@@ -6,11 +6,19 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/invopop/jsonschema"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cast"
 )
 
 type PayloadAttributes map[string]any
+
+func (p PayloadAttributes) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.Type = "object"
+	schema.AdditionalProperties = &jsonschema.Schema{
+		Type: "string",
+	}
+}
 
 func (p PayloadAttributes) GetInt(name string) (int, error) {
 	return GetAttribute[int](p, name)

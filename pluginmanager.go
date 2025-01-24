@@ -13,6 +13,7 @@ import (
 const (
 	CcPayloadId         = "CC_PAYLOAD_ID"
 	CcManifestId        = "CC_MANIFEST_ID"
+	CcEventIdentifier   = "CC_EVENT_IDENTIFIER"
 	CcEventNumber       = "CC_EVENT_NUMBER"
 	CcPluginDefinition  = "CC_PLUGIN_DEFINITION"
 	CcProfile           = "CC"
@@ -88,12 +89,12 @@ func InitPluginManager() (*PluginManager, error) {
 
 func (pm PluginManager) EventNumber() int {
 	//try reading from payload attribute first
-	if event, ok := pm.Attributes[CcEventNumber]; ok {
+	if event, ok := pm.Attributes[CcEventIdentifier]; ok {
 		return int(event.(float64))
 	}
 
 	//fall back to envrionment variable
-	sidx := os.Getenv(CcEventNumber)
+	sidx := os.Getenv(CcEventIdentifier)
 	eventNumber, err := strconv.Atoi(sidx)
 	if err != nil {
 		eventNumber = -1
