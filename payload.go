@@ -23,8 +23,8 @@ type Payload struct {
 
 type Action struct {
 	IOManager
-	Type        string `json:"type"`
-	Description string `json:"description"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // -----------------------------------------------

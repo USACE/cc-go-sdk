@@ -29,9 +29,9 @@ func registerStoreTypes() {
 }
 
 type DataStore struct {
-	Name       string            `json:"name" yaml:"name"`
+	Name       string            `json:"name,omitempty" yaml:"name"`
 	ID         *uuid.UUID        `json:"id,omitempty" yaml:id omitempty`
-	StoreType  StoreType         `json:"store_type" yaml:"store_type"`
+	StoreType  StoreType         `json:"store_type,omitempty" yaml:"store_type"`
 	DsProfile  string            `json:"profile,omitempty" yaml:"profile"`
 	Parameters PayloadAttributes `json:"params,omitempty" yaml:"params"`
 	Session    any               `json:"-" yaml:"-"` //reference to the actual connection native to the data store
@@ -56,9 +56,9 @@ type StoreWriter interface {
 // For example "MODEL_LIBRARY" would match "MODEL_LIBRARY_AWS_ACCESS_KEY_ID"
 // or an empty string to ignore a prefix match.
 type DataSource struct {
-	Name      string            `json:"name" yaml:"name"`
+	Name      string            `json:"name,omitempty" yaml:"name"`
 	ID        *uuid.UUID        `json:"id,omitempty" yaml:id omitempty`
-	Paths     map[string]string `json:"paths" yaml:"paths"`
-	DataPaths map[string]string `json:"data_paths" yaml:"data_paths"`
-	StoreName string            `json:"store_name" yaml:"store_name"`
+	Paths     map[string]string `json:"paths,omitempty" yaml:"paths"`
+	DataPaths map[string]string `json:"data_paths,omitempty" yaml:"data_paths"`
+	StoreName string            `json:"store_name,omitempty" yaml:"store_name"`
 }
