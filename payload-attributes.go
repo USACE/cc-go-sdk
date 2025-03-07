@@ -32,6 +32,20 @@ func (p PayloadAttributes) GetIntOrDefault(name string, defaultValue int) int {
 	return GetOrDefault[int](p, name, defaultValue)
 }
 
+func (p PayloadAttributes) GetIntSlice(name string) ([]int, error) {
+	vals, ok := p[name]
+	if !ok {
+		return nil, fmt.Errorf("Invalid value for %s\n", name)
+	}
+
+	floatVals := Slice2Type[float64](vals.([]any))
+	intvals := make([]int, len(floatVals))
+	for i, f := range floatVals {
+		intvals[i] = int(f)
+	}
+	return intvals, nil
+}
+
 func (p PayloadAttributes) GetInt64(name string) (int64, error) {
 	return GetAttribute[int64](p, name)
 }
