@@ -27,7 +27,7 @@ const (
 	AwsS3Mock           = "S3_MOCK"
 	AwsS3ForcePathStyle = "S3_FORCE_PATH_STYLE"
 	AwsS3DisableSSL     = "S3_DISABLE_SSL"
-	AwsS3Endpoint       = "S3_ENDPOINT"
+	AwsS3Endpoint       = "AWS_ENDPOINT"
 )
 
 var substitutionRegex string = `{([^{}]*)}`
