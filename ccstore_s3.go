@@ -197,7 +197,7 @@ func BuildS3Config(profile string) filestore.S3FSConfig {
 		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
 				PartitionID:       "aws",
-				URL:               os.Getenv(AwsS3Endpoint),
+				URL:               os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Endpoint)),
 				SigningRegion:     region,
 				HostnameImmutable: true,
 			}, nil
