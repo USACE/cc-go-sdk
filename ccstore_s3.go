@@ -183,8 +183,9 @@ func BuildS3Config(profile string) filestore.S3FSConfig {
 			S3Id:  os.Getenv(fmt.Sprintf("%s_%s", profile, AwsAccessKeyId)),
 			S3Key: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsSecretAccessKey)),
 		},
-		S3Region: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion)),
-		S3Bucket: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket)),
+		S3Region:    os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion)),
+		S3Bucket:    os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket)),
+		AltEndpoint: os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Endpoint)),
 		AwsOptions: []func(*config.LoadOptions) error{
 			config.WithRetryer(func() aws.Retryer {
 				return retry.AddWithMaxAttempts(retry.NewStandard(), 5)
@@ -192,19 +193,5 @@ func BuildS3Config(profile string) filestore.S3FSConfig {
 		},
 	}
 
-	shouldMock := os.Getenv(AwsS3Mock)
-	if shouldMock == "true" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				PartitionID:       "aws",
-				URL:               os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Endpoint)),
-				SigningRegion:     region,
-				HostnameImmutable: true,
-			}, nil
-			// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-			//return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-		})
-		awsconfig.AwsOptions = append(awsconfig.AwsOptions, config.WithEndpointResolverWithOptions(customResolver))
-	}
 	return awsconfig
 }
