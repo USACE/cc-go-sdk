@@ -148,6 +148,8 @@ github.com/usace/filesapi v0.0.0-20240315200543-841da1a812a3 h1:P7gZPn+X0+qacIxz
 github.com/usace/filesapi v0.0.0-20240315200543-841da1a812a3/go.mod h1:n93SV2TkqTZQvaxEmraFCSMUDTbPVyc2uc8q+UTp9Q8=
 github.com/usace/filesapi v0.0.0-20240410125920-311040146fc6 h1:/Q8KbFNUg4X/Cwv4ozqNZBUSKYEqH9u1A4zEs45Ho9Y=
 github.com/usace/filesapi v0.0.0-20240410125920-311040146fc6/go.mod h1:n93SV2TkqTZQvaxEmraFCSMUDTbPVyc2uc8q+UTp9Q8=
+github.com/usace/filesapi v0.0.0-20250319153150-ee631dd02f21 h1:xBg/lIFVof/Kmsb4dRbj5Do46ee/imlju2jeht78j90=
+github.com/usace/filesapi v0.0.0-20250319153150-ee631dd02f21/go.mod h1:n93SV2TkqTZQvaxEmraFCSMUDTbPVyc2uc8q+UTp9Q8=
 github.com/usace/filesapi v1.0.0 h1:r6a2ouagUiGdXIDKfqAB+ZgFGXsY1fT15HSs5I+AXWQ=
 github.com/usace/filesapi v1.0.0/go.mod h1:0iUeDc/BkkbMPNykeZuC4pfU46IMzQTRh7c07f3Q1p0=
 github.com/wk8/go-ordered-map/v2 v2.1.8 h1:5h/BUHu93oj4gIdvHHHGsScSTMijfx5PeYkE/fJgbpc=

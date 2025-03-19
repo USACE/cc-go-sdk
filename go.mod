@@ -4,7 +4,7 @@ go 1.22
 
 toolchain go1.23.4
 
-replace github.com/usace/filesapi => /Users/rdcrlrsg/Projects/programming/go/src/github.com/usace/filesapi
+//replace github.com/usace/filesapi => /Users/rdcrlrsg/Projects/programming/go/src/github.com/usace/filesapi
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
