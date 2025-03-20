@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.11
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cast v1.6.0
-	github.com/usace/filesapi v0.0.0-20250319153150-ee631dd02f21
+	github.com/usace/filesapi v0.0.0-20250320132414-61c781325b9a
 )
 
 require (
@@ -32,7 +32,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.20.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.6 // indirect
-	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/eclipse/paho.golang v0.22.0 // indirect
