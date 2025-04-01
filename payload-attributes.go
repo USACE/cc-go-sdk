@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 
 	"github.com/invopop/jsonschema"
 	"github.com/mitchellh/mapstructure"
@@ -98,6 +99,18 @@ func (p PayloadAttributes) GetStringOrDefault(name string, defaultVal string) st
 	return GetOrDefault[string](p, name, defaultVal)
 }
 
+func (p PayloadAttributes) GetBoolean(name string) (bool, error) {
+	return GetAttribute[bool](p, name)
+}
+
+func (p PayloadAttributes) GetBooleanOrFail(name string) bool {
+	return GetOrFail[bool](p, name)
+}
+
+func (p PayloadAttributes) GetBooleanOrDefault(name string, defaultVal bool) bool {
+	return GetOrDefault[bool](p, name, defaultVal)
+}
+
 func (p PayloadAttributes) GetMap(name string) (map[string]any, error) {
 	return GetAttribute[map[string]any](p, name)
 }
@@ -152,6 +165,14 @@ func GetAttribute[T PayloadAttributeTypes](pa PayloadAttributes, name string) (T
 		case reflect.String:
 			s, err := cast.ToStringE(attr)
 			tve.Set(reflect.ValueOf(s))
+			return t, err
+		case reflect.Bool:
+			s, err := cast.ToStringE(attr)
+			if err != nil {
+				return t, err
+			}
+			val := (strings.ToLower(s) == "true")
+			tve.Set(reflect.ValueOf(val))
 			return t, err
 		case reflect.Float64:
 			f, err := cast.ToFloat64E(attr)
