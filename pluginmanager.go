@@ -50,6 +50,23 @@ func InitPluginManagerWithConfig(config PluginManagerConfig) (*PluginManager, er
 	return InitPluginManager()
 }
 
+func connectStores(stores *[]DataStore) error {
+	for i, ds := range *stores {
+		newInstance, err := DataStoreTypeRegistry.New(ds.StoreType)
+		if err != nil {
+			return err
+		}
+		if cds, ok := newInstance.(ConnectionDataStore); ok {
+			conn, err := cds.Connect(ds)
+			if err != nil {
+				return err
+			}
+			(*stores)[i].Session = conn
+		}
+	}
+	return nil
+}
+
 func InitPluginManager() (*PluginManager, error) {
 	manifestId := os.Getenv(CcManifestId)
 	payloadId := os.Getenv(CcPayloadId)
@@ -69,17 +86,16 @@ func InitPluginManager() (*PluginManager, error) {
 
 	manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
 	manager.Actions = payload.Actions
-	for i, ds := range manager.Stores {
-		newInstance, err := DataStoreTypeRegistry.New(ds.StoreType)
+
+	err = connectStores(&manager.Stores)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range manager.Actions {
+		err = connectStores(&manager.Actions[i].Stores)
 		if err != nil {
 			return nil, err
-		}
-		if cds, ok := newInstance.(ConnectionDataStore); ok {
-			conn, err := cds.Connect(ds)
-			if err != nil {
-				return nil, err
-			}
-			manager.Stores[i].Session = conn
 		}
 	}
 
