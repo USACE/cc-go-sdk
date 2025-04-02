@@ -57,7 +57,10 @@ func (s3ds *S3DataStore) Delete(path string) error {
 }
 
 func (s3ds *S3DataStore) GetSession() any {
-	return s3ds.fs
+	if s3fs, ok := s3ds.fs.(*filestore.S3FS); ok {
+		return s3fs.GetClient()
+	}
+	return nil
 }
 
 func (s3ds *S3DataStore) Connect(ds DataStore) (any, error) {
