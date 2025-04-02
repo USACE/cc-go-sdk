@@ -79,6 +79,7 @@ type IOManager struct {
 	Stores     []DataStore       `json:"stores"`
 	Inputs     []DataSource      `json:"inputs"`
 	Outputs    []DataSource      `json:"outputs"`
+	parent     *IOManager
 }
 
 type GetDsInput struct {
@@ -97,12 +98,20 @@ type PutOpInput struct {
 	DataSourceOpInput
 }
 
+func (im *IOManager) SetParent(iom *IOManager) {
+	im.parent = iom
+}
+
 func (im *IOManager) GetStore(name string) (*DataStore, error) {
 	for _, store := range im.Stores {
 		if store.Name == name {
 			return &store, nil
 		}
 	}
+	if im.parent != nil {
+		return im.parent.GetStore(name)
+	}
+
 	return nil, errors.New("Invalid store name")
 }
 

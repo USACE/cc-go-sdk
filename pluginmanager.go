@@ -87,12 +87,19 @@ func InitPluginManager() (*PluginManager, error) {
 	manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?
 	manager.Actions = payload.Actions
 
+	//make connections to the plugin manager stores
 	err = connectStores(&manager.Stores)
 	if err != nil {
 		return nil, err
 	}
 
 	for i := range manager.Actions {
+		//add the pm manager IOManager as a parent to the action IOManager
+		//so that the action IOManager can recursively search through parent
+		//IOManager elements
+		manager.Actions[i].IOManager.SetParent(&manager.IOManager)
+
+		//make connection to the action storews
 		err = connectStores(&manager.Actions[i].Stores)
 		if err != nil {
 			return nil, err
