@@ -99,7 +99,7 @@ func InitPluginManager() (*PluginManager, error) {
 		//IOManager elements
 		manager.Actions[i].IOManager.SetParent(&manager.IOManager)
 
-		//make connection to the action storews
+		//make connection to the action stores
 		err = connectStores(&manager.Actions[i].Stores)
 		if err != nil {
 			return nil, err
@@ -225,12 +225,14 @@ func (pm *PluginManager) substituteMapVariables(params map[string]any) {
 	}
 }
 
+// @TODO add substitution for datapaths
 func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 	name, err := parameterSubstitute(ds.Name, payloadAttr)
 	if err != nil {
 		return err
 	}
 	ds.Name = name
+
 	for i, p := range ds.Paths {
 		path, err := parameterSubstitute(p, payloadAttr)
 		if err != nil {
@@ -238,6 +240,15 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 		}
 		ds.Paths[i] = path
 	}
+
+	for i, p := range ds.DataPaths {
+		path, err := parameterSubstitute(p, payloadAttr)
+		if err != nil {
+			return err
+		}
+		ds.DataPaths[i] = path
+	}
+
 	return nil
 }
 

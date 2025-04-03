@@ -18,9 +18,12 @@ import (
 */
 
 const (
-	defaultAttrName     string = "a"
-	defaultMetadataPath string = "/scalars"
-	defaultTileExtent   int64  = 256
+	defaultAttrName           string = "a"
+	defaultMetadataPath       string = "/scalars"
+	defaultTileExtent         int64  = 256
+	stringSliceMetadataPrefix string = "__strslc_"
+	stringSliceMetadataOffset string = "_offset_"
+	stringSliceMetadataData   string = "_data_"
 )
 
 type TileDbEventStore struct {
@@ -746,10 +749,95 @@ func (tdb *TileDbEventStore) PutMetadata(key string, val any) error {
 	}
 	defer array.Close()
 
-	return array.PutMetadata(key, val)
+	switch val := val.(type) {
+	case []string:
+		data, offsets := computeStringSliceMetadataComponents(val)
+		offsetkey := fmt.Sprintf("%s%s%s", stringSliceMetadataPrefix, stringSliceMetadataOffset, key)
+		datakey := fmt.Sprintf("%s%s%s", stringSliceMetadataPrefix, stringSliceMetadataData, key)
+		err := array.PutMetadata(datakey, data)
+		if err != nil {
+			return err
+		}
+		return array.PutMetadata(offsetkey, offsets)
+	default:
+		return array.PutMetadata(key, val)
+	}
 }
 
 func (tdb *TileDbEventStore) GetMetadata(key string, dest any) error {
+
+	uri := tdb.uri + defaultMetadataPath
+	array, err := tiledb.NewArray(tdb.context, uri)
+	if err != nil {
+		return err
+	}
+	err = array.Open(tiledb.TILEDB_READ)
+	if err != nil {
+		return err
+	}
+	defer array.Close()
+
+	destTypePtr := reflect.TypeOf(dest) //dest type must be a pointer
+	if destTypePtr.Kind() != reflect.Ptr {
+		return errors.New("dest type must be a pointer")
+	}
+
+	switch dest := dest.(type) {
+	case *[]string:
+		offsetkey := fmt.Sprintf("%s%s%s", stringSliceMetadataPrefix, stringSliceMetadataOffset, key)
+		datakey := fmt.Sprintf("%s%s%s", stringSliceMetadataPrefix, stringSliceMetadataData, key)
+
+		_, _, dataval, err := array.GetMetadata(datakey)
+		if err != nil {
+			return err
+		}
+
+		_, _, offsetval, err := array.GetMetadata(offsetkey)
+		if err != nil {
+			return err
+		}
+
+		data, dataok := dataval.([]byte)
+		offsets, offsetok := offsetval.([]int64)
+
+		if dataok && offsetok {
+			numvals := len(offsets)
+			metadata := make([]string, numvals)
+			offsets := append(offsets, int64(len(data)))
+			for i := range numvals {
+				metadata[i] = string(data[offsets[i]:offsets[i+1]])
+			}
+			reflect.ValueOf(dest).Elem().Set(reflect.ValueOf(metadata))
+			return nil
+		} else {
+			return fmt.Errorf("invalid offset or data types for %s", key)
+		}
+	default:
+		_, _, val, err := array.GetMetadata(key)
+		if err != nil {
+			return err
+		}
+
+		valType := reflect.TypeOf(val)
+		destTypePtr := reflect.TypeOf(dest) //dest type must be a pointer
+		if destTypePtr.Kind() != reflect.Ptr {
+			return errors.New("dest type must be a pointer")
+		}
+		destType := destTypePtr.Elem()
+
+		if destType != valType {
+			return fmt.Errorf("dest type mismatch. expected %s got %s", destType.Name(), valType.Name())
+		}
+
+		reflect.ValueOf(dest).Elem().Set(reflect.ValueOf(val))
+
+		return err
+
+	}
+}
+
+func (tdb *TileDbEventStore) GetMetadataOld(key string, dest any) error {
+
 	uri := tdb.uri + defaultMetadataPath
 	array, err := tiledb.NewArray(tdb.context, uri)
 	if err != nil {
@@ -781,6 +869,19 @@ func (tdb *TileDbEventStore) GetMetadata(key string, dest any) error {
 	reflect.ValueOf(dest).Elem().Set(reflect.ValueOf(val))
 
 	return err
+}
+
+func computeStringSliceMetadataComponents(vals []string) ([]byte, []int64) {
+	data := []byte{}
+	position := 0
+	offsets := make([]int64, len(vals))
+	for i, v := range vals {
+		bv := []byte(v)
+		data = append(data, bv...)
+		offsets[i] = int64(position)
+		position = position + len(bv)
+	}
+	return data, offsets
 }
 
 func (tdb *TileDbEventStore) DeleteMetadata(key string) error {

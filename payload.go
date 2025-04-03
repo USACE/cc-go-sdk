@@ -112,7 +112,7 @@ func (im *IOManager) GetStore(name string) (*DataStore, error) {
 		return im.parent.GetStore(name)
 	}
 
-	return nil, errors.New("Invalid store name")
+	return nil, errors.New("invalid store name")
 }
 
 func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
