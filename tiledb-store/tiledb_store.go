@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 
 	. "github.com/usace/cc-go-sdk"
@@ -25,6 +26,8 @@ const (
 	stringSliceMetadataOffset string = "_offset_"
 	stringSliceMetadataData   string = "_data_"
 )
+
+var webProtocolRegex *regexp.Regexp = regexp.MustCompile(`^(https?):\/\/(.*)$`)
 
 type TileDbEventStore struct {
 	context *tiledb.Context
@@ -73,6 +76,7 @@ func (tdb *TileDbEventStore) Connect(ds DataStore) (any, error) {
 	S3Key := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsSecretAccessKey))
 	S3Region := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsDefaultRegion))
 	S3Bucket := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Bucket))
+	S3Endpoint := os.Getenv(fmt.Sprintf("%s_%s", profile, AwsS3Endpoint))
 
 	tdb.uri = fmt.Sprintf("s3://%s/%s/eventdb", S3Bucket, rootPath)
 	config, err := tiledb.NewConfig()
@@ -85,6 +89,18 @@ func (tdb *TileDbEventStore) Connect(ds DataStore) (any, error) {
 	config.Set("vfs.s3.aws_secret_access_key", S3Key)
 	config.Set("vfs.s3.multipart_part_size", strconv.Itoa(5*1024*1024))
 	config.Set("vfs.s3.max_parallel_ops", "2")
+	if S3Endpoint != "" {
+		match := webProtocolRegex.FindStringSubmatch(S3Endpoint)
+		if len(match) == 3 {
+			protocol := match[1]
+			hostAndPath := match[2]
+			config.Set("vfs.s3.scheme", protocol)
+			config.Set("vfs.s3.endpoint_override", hostAndPath)
+			config.Set("vfs.s3.use_virtual_addressing", "false")
+		} else {
+			log.Fatalln("Invalid S3Endpoint.  Endpoint must begin with the protocol: 'http://' or 'https://'.")
+		}
+	}
 
 	context, err := tiledb.NewContext(config)
 	if err != nil {
@@ -831,8 +847,7 @@ func (tdb *TileDbEventStore) GetMetadata(key string, dest any) error {
 
 		reflect.ValueOf(dest).Elem().Set(reflect.ValueOf(val))
 
-		return err
-
+		return nil
 	}
 }
 
