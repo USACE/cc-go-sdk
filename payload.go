@@ -131,6 +131,9 @@ func (im *IOManager) GetDataSource(input GetDsInput) (DataSource, error) {
 			return ds, nil
 		}
 	}
+	if im.parent != nil {
+		return im.parent.GetDataSource(input)
+	}
 	return DataSource{}, fmt.Errorf("data source %s not found", input.DsName)
 }
 
