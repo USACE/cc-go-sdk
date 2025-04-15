@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -36,8 +35,9 @@ var maxretry int = 100
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
-	ccStore CcStore
-	Logger  *CcLogger
+	EventIdentifier string
+	ccStore         CcStore
+	Logger          *CcLogger
 	Payload
 }
 
@@ -73,6 +73,7 @@ func InitPluginManager() (*PluginManager, error) {
 	registerStoreTypes()
 	rx, _ = regexp.Compile(substitutionRegex)
 	var manager PluginManager
+	manager.EventIdentifier = os.Getenv(CcEventIdentifier)
 	manager.Logger = NewCcLogger(CcLoggerInput{manifestId, payloadId, nil})
 	s3Store, err := NewCcStore()
 	if err != nil {
@@ -108,21 +109,6 @@ func InitPluginManager() (*PluginManager, error) {
 
 	err = manager.substitutePathVariables()
 	return &manager, err
-}
-
-func (pm PluginManager) EventNumber() int {
-	//try reading from payload attribute first
-	if event, ok := pm.Attributes[CcEventIdentifier]; ok {
-		return int(event.(float64))
-	}
-
-	//fall back to envrionment variable
-	sidx := os.Getenv(CcEventIdentifier)
-	eventNumber, err := strconv.Atoi(sidx)
-	if err != nil {
-		eventNumber = -1
-	}
-	return eventNumber
 }
 
 // -----------------------------------------------
