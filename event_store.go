@@ -369,12 +369,17 @@ func (bd ArrayAttrSet) BuildCreateArrayInput(arrayPath string) (CreateArrayInput
 		size = MAXDIMENSION
 	}
 
+	tileExtent := defaultTileExtent
+	if tileExtent > size {
+		tileExtent = size
+	}
+
 	input.Dimensions = []ArrayDimension{
 		{
 			Name:          "d1",
 			DimensionType: DIMENSION_INT,
 			Domain:        []int64{1, size},
-			TileExtent:    defaultTileExtent,
+			TileExtent:    tileExtent,
 		},
 	}
 
@@ -392,8 +397,9 @@ func (bd ArrayAttrSet) BuildPutArrayInput(arrayPath string, arrayType ARRAY_TYPE
 		}
 	}
 
+	bufSize := getBufferLen(bd[0])
+
 	if arrayType == ARRAY_SPARSE {
-		bufSize := getBufferLen(bd[0])
 		dbuf := make([]int64, bufSize)
 		for i := 1; i <= int(bufSize); i++ {
 			dbuf[i-1] = int64(i)
@@ -404,10 +410,9 @@ func (bd ArrayAttrSet) BuildPutArrayInput(arrayPath string, arrayType ARRAY_TYPE
 		})
 	}
 
-	subarraySize := reflect.ValueOf(bd[1].Buffer).Len()
 	return PutArrayInput{
 		Buffers:     pabs,
-		BufferRange: []int64{1, int64(subarraySize)},
+		BufferRange: []int64{1, bufSize},
 		DataPath:    arrayPath,
 		ArrayType:   arrayType,
 	}

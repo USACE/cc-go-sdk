@@ -391,18 +391,24 @@ func getOpBufferRange(br []int64, domain []int64) []int64 {
 	return obr
 }
 
+func determineTileExtent(dims []int64) int64 {
+	tileExtent := defaultTileExtent
+	for _, dimSize := range dims {
+		if dimSize < tileExtent {
+			tileExtent = dimSize
+		}
+	}
+	return tileExtent
+}
+
 func (tdb *TileDbEventStore) createSimpleArray(input CreateSimpleArrayInput) error {
 	dimensions := make([]ArrayDimension, len(input.Dims))
 	for i := 0; i < len(input.Dims); i++ {
-		tileExtent := defaultTileExtent
-		if len(input.TileExtent) == len(input.Dims) {
-			tileExtent = input.TileExtent[i]
-		}
 		dimensions[i] = ArrayDimension{
 			Name:          strconv.Itoa(i),
 			DimensionType: DIMENSION_INT,
 			Domain:        []int64{1, input.Dims[i]},
-			TileExtent:    tileExtent, //@TODO Fix this. Need to use a better tile extent
+			TileExtent:    determineTileExtent(input.Dims), //@TODO Fix this. Need to use a better tile extent
 		}
 	}
 	return tdb.CreateArray(
@@ -511,7 +517,6 @@ func (tdb *TileDbEventStore) GetSimpleArray(input GetSimpleArrayInput) (*ArrayRe
 
 func handleVariableResults(data []uint8, query *tiledb.Query, attr string, offsets []uint64) [][]uint8 {
 	elements, _ := query.ResultBufferElements()
-	fmt.Println(elements)
 	results := make([][]uint8, elements[attr][0])
 	ranges := append(offsets, elements[attr][1])
 	var dataPosition uint64 = 0
