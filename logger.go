@@ -2,6 +2,7 @@ package cc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 )
@@ -9,30 +10,37 @@ import (
 const (
 	LevelAction      = slog.Level(41)
 	LevelSendMessage = slog.Level(42)
+	LevelFatal       = slog.Level(99)
 )
 
+// LevelNames maps custom log levels to their string representations.
 var LevelNames = map[slog.Leveler]string{
 	LevelAction:      "ACTION",
 	LevelSendMessage: "SENDMESSAGE",
+	LevelFatal:       "FATAL",
 }
 
+// MessageWriter is an interface for writing message logs.
 type MessageWriter interface {
 	Write(p []byte) (n int, err error)
 	Close()
 }
 
+// CcLoggerInput holds the input parameters required to create a CcLogger instance.
 type CcLoggerInput struct {
 	Manifest      string
 	Payload       string
 	MessageWriter MessageWriter
 }
 
+// cc logger provides logging capabilities with custom log levels and handlers.
 type CcLogger struct {
 	input CcLoggerInput
 	*slog.Logger
 	messageLogger *slog.Logger
 }
 
+// NewCcLogger creates a new instance of CcLogger with the provided input parameters.
 func NewCcLogger(input CcLoggerInput) *CcLogger {
 	stdOutLogger := slog.New(slog.NewJSONHandler(os.Stdout, ccLoggerOpts(slog.LevelDebug)))
 	var messageLogger *slog.Logger
@@ -46,11 +54,13 @@ func NewCcLogger(input CcLoggerInput) *CcLogger {
 	}
 }
 
+// Action logs an action-related message with the specified log level and attributes.
 func (l *CcLogger) Action(msg string, args ...slog.Attr) {
 	ctx := context.Background()
 	l.Log(ctx, LevelAction, msg)
 }
 
+// SendMessage logs a send message event to channel
 func (l *CcLogger) SendMessage(channel string, msg string, args ...slog.Attr) {
 	ctx := context.Background()
 	attrs := toAny(args)
@@ -74,6 +84,22 @@ func (l *CcLogger) SendMessage(channel string, msg string, args ...slog.Attr) {
 	}
 }
 
+// Fatal logs a fatal error message and exits the application.
+func (l *CcLogger) Fatal(msg string, args ...slog.Attr) {
+	ctx := context.Background()
+	l.Log(ctx, LevelAction, msg)
+	os.Exit(1)
+}
+
+// Fatalf logs a formatted fatal error message and exits the application.
+func (l *CcLogger) Fatalf(msg ...string) {
+	ctx := context.Background()
+	errmessage := msg[0]
+	l.Log(ctx, LevelAction, fmt.Sprintf(errmessage, sliceToAnySlice(msg[1:])...))
+	os.Exit(1)
+}
+
+// toAny converts a slice of slog.Attr to a slice of any.
 func toAny(attr []slog.Attr) []any {
 	size := len(attr)
 	a := make([]any, size)
@@ -83,6 +109,26 @@ func toAny(attr []slog.Attr) []any {
 	return a
 }
 
+// fromAny converts a slice of any to a slice of slog.Attr.
+func fromAny(slice []any) []slog.Attr {
+	attrs := make([]slog.Attr, len(slice))
+	for i, v := range slice {
+		key := fmt.Sprintf("item-%d", i)
+		attrs[i] = slog.Any(key, v)
+	}
+	return attrs
+}
+
+// sliceToAnySlice converts a slice of any type to a slice of any.
+func sliceToAnySlice[T any](t []T) []any {
+	anyslice := make([]any, len(t))
+	for i, v := range t {
+		anyslice[i] = v
+	}
+	return anyslice
+}
+
+// ccLoggerOpts returns slog.HandlerOptions configured with custom log levels and attribute replacement.
 func ccLoggerOpts(cclevel slog.Level) *slog.HandlerOptions {
 	return &slog.HandlerOptions{
 		Level: cclevel,

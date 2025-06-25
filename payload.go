@@ -25,6 +25,7 @@ type Action struct {
 	IOManager
 	Type        string `json:"type,omitempty"`
 	Description string `json:"description,omitempty"`
+	Name        string `json:"name,omitempty"`
 }
 
 // -----------------------------------------------

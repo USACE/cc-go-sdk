@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -31,7 +32,38 @@ const (
 
 var substitutionRegex string = `{([^{}]*)}`
 var rx *regexp.Regexp
+
 var maxretry int = 100
+
+type NamedAction interface {
+	GetName() string
+}
+
+type ActionRunnerBase struct {
+	ActionName    string
+	PluginManager *PluginManager
+	Action        Action
+}
+
+func (arb ActionRunnerBase) GetName() string {
+	return arb.ActionName
+}
+
+func (arb *ActionRunnerBase) SetName(name string) {
+	arb.ActionName = name
+}
+
+type ActionRunner interface {
+	Run() error
+}
+
+var ActionRegistry ActionRunnerRegistry = []ActionRunner{}
+
+type ActionRunnerRegistry []ActionRunner
+
+func (arr *ActionRunnerRegistry) RegisterAction(runner ActionRunner) {
+	*arr = append(*arr, runner)
+}
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
@@ -109,6 +141,30 @@ func InitPluginManager() (*PluginManager, error) {
 
 	err = manager.substitutePathVariables()
 	return &manager, err
+}
+
+func (pm *PluginManager) RunActions() error {
+	for _, action := range pm.Actions {
+		for _, runner := range ActionRegistry {
+			if actionR, ok := runner.(NamedAction); ok {
+				actionName := actionR.GetName()
+				if action.Name == actionName {
+					pm.Logger.Info("Running " + action.Name)
+					t := reflect.TypeOf(runner).Elem() //runner is a pointer, so take the value of it
+					pointerVal := reflect.New(t)       //create a new struct instance from type t
+					structType := pointerVal.Elem()
+					structType.FieldByName("PluginManager").Set(reflect.ValueOf(pm))
+					structType.FieldByName("Action").Set(reflect.ValueOf(action))
+					structType.FieldByName("ActionName").Set(reflect.ValueOf(actionName))
+					runMethod := pointerVal.MethodByName("Run") //must call method on the pointer receiver
+					if runMethod.IsValid() {
+						runMethod.Call(nil)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // -----------------------------------------------
