@@ -172,7 +172,15 @@ func (pm *PluginManager) RunActions() error {
 					structType.FieldByName("ActionName").Set(reflect.ValueOf(actionName))
 					runMethod := pointerVal.MethodByName("Run") //must call method on the pointer receiver
 					if runMethod.IsValid() {
-						runMethod.Call(nil)
+						results := runMethod.Call(nil)
+						//only a single error should be returned as results
+						if len(results) > 0 {
+							if err, ok := results[0].Interface().(error); ok {
+								if !(structType.FieldByName("ContinueOnError").Bool()) {
+									return fmt.Errorf("error running %s: %s", actionName, err)
+								}
+							}
+						}
 					}
 				}
 			}
