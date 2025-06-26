@@ -40,9 +40,10 @@ type NamedAction interface {
 }
 
 type ActionRunnerBase struct {
-	ActionName    string
-	PluginManager *PluginManager
-	Action        Action
+	ActionName      string
+	ContinueOnError bool
+	PluginManager   *PluginManager
+	Action          Action
 }
 
 func (arb ActionRunnerBase) GetName() string {
@@ -143,6 +144,19 @@ func InitPluginManager() (*PluginManager, error) {
 	return &manager, err
 }
 
+// RunActions iterates through the registered actions and executes them.
+//
+// It iterates over the `Actions` slice in the `PluginManager`, and for each action,
+// it searches the `ActionRegistry` for a matching runner implementation. If a match is found
+// (identified by the action name), the runner is instantiated using reflection,
+// its `PluginManager`, `Action`, and `ActionName` fields are set, and its `Run` method is called.
+//
+// This method relies heavily on reflection to dynamically instantiate and invoke the action runners,
+// making it flexible but also potentially less performant than statically typed calls.
+// It assumes that all action runner structs have fields named "PluginManager", "Action", and "ActionName".
+//
+// Returns nil, as error handling is not currently implemented within the action runners themselves.
+// @TODO review error handling here.....
 func (pm *PluginManager) RunActions() error {
 	for _, action := range pm.Actions {
 		for _, runner := range ActionRegistry {
