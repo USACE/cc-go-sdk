@@ -189,17 +189,19 @@ func (im *IOManager) Put(input PutOpInput) (int, error) {
 	}
 
 	if writer, ok := store.Session.(StoreWriter); ok {
-		path := ds.Paths[input.PathKey]
-		datapath := ""
-		if input.DataPathKey != "" {
-			datapath = ds.DataPaths[input.DataPathKey]
+		if path, ok := ds.Paths[input.PathKey]; ok {
+			datapath := ""
+			if input.DataPathKey != "" {
+				var dpok bool
+				if datapath, dpok = ds.DataPaths[input.DataPathKey]; !dpok {
+					return 0, fmt.Errorf("expected data source data path %s not found", input.DataPathKey)
+				}
+			}
+			return writer.Put(input.SrcReader, path, datapath)
 		}
-
-		return writer.Put(input.SrcReader, path, datapath)
+		return 0, fmt.Errorf("data source path %s not found", input.PathKey)
 	}
-
-	return 0, fmt.Errorf("Data Store %s session does not implement a StoreWriter", ds.StoreName)
-
+	return 0, fmt.Errorf("data store %s session does not implement a storewriter", ds.StoreName)
 }
 
 func (im *IOManager) Copy(src DataSourceOpInput, dest DataSourceOpInput) error {
