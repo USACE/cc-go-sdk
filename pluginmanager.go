@@ -58,13 +58,21 @@ type ActionRunner interface {
 	Run() error
 }
 
-var ActionRegistry ActionRunnerRegistry = []ActionRunner{}
+var ActionRegistry ActionRunnerRegistry = make(map[string]ActionRunner)
 
-type ActionRunnerRegistry []ActionRunner
-
-func (arr *ActionRunnerRegistry) RegisterAction(runner ActionRunner) {
-	*arr = append(*arr, runner)
+func (arr *ActionRunnerRegistry) RegisterAction(actionName string, runner ActionRunner) {
+	(*arr)[actionName] = runner
 }
+
+type ActionRunnerRegistry map[string]ActionRunner
+
+//var ActionRegistry ActionRunnerRegistry = []ActionRunner{}
+
+//type ActionRunnerRegistry []ActionRunner
+
+// func (arr *ActionRunnerRegistry) RegisterAction(runner ActionRunner) {
+// 	*arr = append(*arr, runner)
+// }
 
 // PluginManager is a Manager designed to simplify access to stores and usage of plugin api calls
 type PluginManager struct {
@@ -155,35 +163,32 @@ func InitPluginManager() (*PluginManager, error) {
 // making it flexible but also potentially less performant than statically typed calls.
 // It assumes that all action runner structs have fields named "PluginManager", "Action", and "ActionName".
 //
-// Returns nil, as error handling is not currently implemented within the action runners themselves.
 // @TODO review error handling here.....
 func (pm *PluginManager) RunActions() error {
 	for _, action := range pm.Actions {
-		for _, runner := range ActionRegistry {
-			if actionR, ok := runner.(NamedAction); ok {
-				actionName := actionR.GetName()
-				if action.Name == actionName {
-					pm.Logger.Info("Running " + action.Name)
-					t := reflect.TypeOf(runner).Elem() //runner is a pointer, so take the value of it
-					pointerVal := reflect.New(t)       //create a new struct instance from type t
-					structType := pointerVal.Elem()
-					structType.FieldByName("PluginManager").Set(reflect.ValueOf(pm))
-					structType.FieldByName("Action").Set(reflect.ValueOf(action))
-					structType.FieldByName("ActionName").Set(reflect.ValueOf(actionName))
-					runMethod := pointerVal.MethodByName("Run") //must call method on the pointer receiver
-					if runMethod.IsValid() {
-						results := runMethod.Call(nil)
-						//only a single error should be returned as results
-						if len(results) > 0 {
-							if err, ok := results[0].Interface().(error); ok {
-								if !(structType.FieldByName("ContinueOnError").Bool()) {
-									return fmt.Errorf("error running %s: %s", actionName, err)
-								}
+		for runnerName, runner := range ActionRegistry {
+			if action.Name == runnerName {
+				pm.Logger.Info("Running " + action.Name)
+				t := reflect.TypeOf(runner).Elem() //runner is a pointer, so take the value of it
+				pointerVal := reflect.New(t)       //create a new struct instance from type t
+				structType := pointerVal.Elem()
+				structType.FieldByName("PluginManager").Set(reflect.ValueOf(pm))
+				structType.FieldByName("Action").Set(reflect.ValueOf(action))
+				//structType.FieldByName("ActionName").Set(reflect.ValueOf(actionName))
+				runMethod := pointerVal.MethodByName("Run") //must call method on the pointer receiver
+				if runMethod.IsValid() {
+					results := runMethod.Call(nil)
+					//only a single error should be returned as results
+					if len(results) > 0 {
+						if err, ok := results[0].Interface().(error); ok {
+							if !(structType.FieldByName("ContinueOnError").Bool()) {
+								return fmt.Errorf("error running %s: %s", runnerName, err)
 							}
 						}
 					}
 				}
 			}
+			//}
 		}
 	}
 	return nil
