@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"reflect"
 	"regexp"
@@ -187,6 +188,7 @@ func (pm *PluginManager) RunActions() error {
 						}
 					}
 				}
+				pm.Logger.Info("Completed " + action.Name)
 			}
 			//}
 		}
@@ -258,10 +260,18 @@ func (pm *PluginManager) substitutePathVariables() error {
 	}
 
 	for _, action := range pm.Actions {
-		pm.substituteMapVariables(action.Attributes)
+		//NO MORE action.Attributes substitution
+		//pm.substituteMapVariables(action.Attributes)
+
+		//create a map for a combined action parameter and payload parameter list
+		combinedParams := maps.Clone(pm.Attributes)
+		if combinedParams == nil {
+			combinedParams = make(map[string]any)
+		}
+		maps.Copy(combinedParams, action.Attributes)
 
 		for i, ds := range action.Inputs {
-			err := pathsSubstitute(&ds, pm.Attributes)
+			err := pathsSubstitute(&ds, combinedParams)
 			if err != nil {
 				return err
 			}
@@ -269,7 +279,7 @@ func (pm *PluginManager) substitutePathVariables() error {
 		}
 
 		for i, ds := range action.Outputs {
-			err := pathsSubstitute(&ds, pm.Attributes)
+			err := pathsSubstitute(&ds, combinedParams)
 			if err != nil {
 				return err
 			}

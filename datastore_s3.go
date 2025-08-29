@@ -39,8 +39,8 @@ func (s3ds *S3DataStore) Get(path string, datapath string) (io.ReadCloser, error
 	return s3ds.fs.GetObject(fsgoi)
 }
 
-func (s3ds *S3DataStore) GetFilestore() *filestore.FileStore {
-	return &s3ds.fs
+func (s3ds *S3DataStore) GetFilestore() filestore.FileStore {
+	return s3ds.fs
 }
 
 func (s3ds *S3DataStore) Put(reader io.Reader, path string, destDataPath string) (int, error) {
