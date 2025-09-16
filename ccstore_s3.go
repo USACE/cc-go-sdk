@@ -50,7 +50,7 @@ func NewS3CcStore(manifestArgs ...string) (CcStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &S3CcStore{fs, localRootPath, rootPath, manifestId, payloadId, S3}, nil
+	return &S3CcStore{fs, localRootPath, rootPath, manifestId, payloadId, FSS3}, nil
 }
 
 // HandlesDataSource determines if a datasource is handled by this store

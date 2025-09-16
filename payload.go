@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 type DataSourceIoType string
@@ -144,6 +145,29 @@ func (im *IOManager) GetInputDataSource(name string) (DataSource, error) {
 
 func (im *IOManager) GetOutputDataSource(name string) (DataSource, error) {
 	return im.GetDataSource(GetDsInput{DataSourceOutput, name})
+}
+
+func (im *IOManager) GetAbsolutePath(storename string, sourcename string, pathname string) (string, error) {
+	store, err := im.GetStore(storename)
+	if err != nil {
+		return "", fmt.Errorf("failed to get store: %s", err)
+	}
+
+	ds, err := im.GetDataSource(GetDsInput{
+		DsIoType: DataSourceAll,
+		DsName:   sourcename,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get data source: %s", err)
+	}
+
+	root := store.Parameters.GetStringOrDefault("root", "/")
+	if path, ok := ds.Paths[pathname]; ok {
+		return filepath.Clean(fmt.Sprintf("%s%c%s", root, os.PathSeparator, path)), nil
+	}
+	return "", fmt.Errorf("invalid path name: %s", pathname)
+
 }
 
 func (im *IOManager) GetReader(input DataSourceOpInput) (io.ReadCloser, error) {

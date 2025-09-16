@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
+	filestore "github.com/usace/filesapi"
 )
 
 type DataStoreTypeRegistryMap map[StoreType]reflect.Type
@@ -25,7 +26,10 @@ func (registry DataStoreTypeRegistryMap) New(storeType StoreType) (any, error) {
 var DataStoreTypeRegistry = make(DataStoreTypeRegistryMap)
 
 func registerStoreTypes() {
-	DataStoreTypeRegistry.Register(S3, S3DataStore{})
+	//DataStoreTypeRegistry.Register(S3, S3DataStore{})
+	DataStoreTypeRegistry.Register(FSS3, FileDataStore[filestore.S3FS]{})
+	DataStoreTypeRegistry.Register(FSB, FileDataStore[filestore.BlockFS]{})
+
 }
 
 type DataStore struct {

@@ -9,7 +9,9 @@ const (
 type StoreType string
 
 const (
-	S3    StoreType = "S3"
+	//S3    StoreType = "S3"
+	FSS3  StoreType = "S3" //aws S3
+	FSB   StoreType = "FS" //mounted file system
 	WS    StoreType = "WS"
 	RDBMS StoreType = "RDBMS"
 	EBS   StoreType = "EBS"

@@ -12,7 +12,7 @@ func TestCcPushObject(t *testing.T) {
 	poi := PutObjectInput{
 		FileName:             "test",
 		FileExtension:        "json",
-		DestinationStoreType: S3,
+		DestinationStoreType: FSS3,
 		ObjectState:          LocalDisk,
 		Data:                 []byte{},
 		SourcePath:           "/data",
@@ -30,7 +30,7 @@ func TestCcPullObject(t *testing.T) {
 		t.Fatal(err)
 	}
 	poi := PullObjectInput{
-		SourceStoreType:     S3,
+		SourceStoreType:     FSS3,
 		SourceRootPath:      "/cc_store",
 		DestinationRootPath: "/data",
 		FileName:            "test",
