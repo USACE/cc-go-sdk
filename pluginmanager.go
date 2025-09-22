@@ -244,6 +244,10 @@ func (pm PluginManager) CopyFileToRemote(input CopyFileToRemoteInput) error {
 // Private utility functions
 // -----------------------------------------------
 func (pm *PluginManager) substitutePathVariables() error {
+
+	//allow env substitution within payload attributes
+	pm.substituteMapVariables(pm.Attributes, false)
+
 	for i, ds := range pm.Inputs {
 		err := pathsSubstitute(&ds, pm.Attributes)
 		if err != nil {
@@ -260,8 +264,9 @@ func (pm *PluginManager) substitutePathVariables() error {
 	}
 
 	for _, action := range pm.Actions {
-		//NO MORE action.Attributes substitution
-		//pm.substituteMapVariables(action.Attributes)
+
+		//allow env and payload attribute substition within action attributes
+		pm.substituteMapVariables(action.Attributes, true)
 
 		//create a map for a combined action parameter and payload parameter list
 		combinedParams := maps.Clone(pm.Attributes)
@@ -290,30 +295,30 @@ func (pm *PluginManager) substitutePathVariables() error {
 	return nil
 }
 
-func (pm *PluginManager) substituteMapVariables(params map[string]any) {
+func (pm *PluginManager) substituteMapVariables(params map[string]any, attrSub bool) {
 	for param, val := range params {
 		switch val.(type) {
 		case string:
-			newval, err := parameterSubstitute(val, pm.Attributes)
+			newval, err := parameterSubstitute(val, pm.Attributes, attrSub)
 			if err == nil {
 				params[param] = newval
 			}
 		case map[string]any:
-			pm.substituteMapVariables(val.(map[string]any))
+			pm.substituteMapVariables(val.(map[string]any), attrSub)
 		}
 	}
 }
 
 // @TODO add substitution for datapaths
 func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
-	name, err := parameterSubstitute(ds.Name, payloadAttr)
+	name, err := parameterSubstitute(ds.Name, payloadAttr, true)
 	if err != nil {
 		return err
 	}
 	ds.Name = name
 
 	for i, p := range ds.Paths {
-		path, err := parameterSubstitute(p, payloadAttr)
+		path, err := parameterSubstitute(p, payloadAttr, true)
 		if err != nil {
 			return err
 		}
@@ -321,7 +326,7 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 	}
 
 	for i, p := range ds.DataPaths {
-		path, err := parameterSubstitute(p, payloadAttr)
+		path, err := parameterSubstitute(p, payloadAttr, true)
 		if err != nil {
 			return err
 		}
@@ -331,7 +336,7 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 	return nil
 }
 
-func parameterSubstitute(param interface{}, payloadAttr map[string]any) (string, error) {
+func parameterSubstitute(param interface{}, payloadAttr map[string]any, attrSub bool) (string, error) {
 	switch param.(type) {
 	case string:
 		strparam := param.(string)
@@ -339,29 +344,29 @@ func parameterSubstitute(param interface{}, payloadAttr map[string]any) (string,
 		for _, match := range result {
 			sub := strings.Split(match[1], "::")
 			if len(sub) != 2 {
-				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
+				return "", fmt.Errorf("invalid data source substitution: %s", match[0])
 			}
 			val := ""
-			switch sub[0] {
-			case "ENV":
+			switch {
+			case sub[0] == "ENV":
 				val = os.Getenv(sub[1])
 				if val == "" {
-					return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing environment parameter: %s\n", match[0]))
+					return "", fmt.Errorf("invalid data source substitution.  missing environment parameter: %s", match[0])
 				}
-			case "ATTR":
+			case sub[0] == "ATTR" && attrSub:
 				val2, ok := payloadAttr[sub[1]]
 				if !ok {
-					return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution.  Missing payload parameter: %s\n", match[0]))
+					return "", fmt.Errorf("invalid data source substitution.  missing payload parameter: %s", match[0])
 				}
 				val = fmt.Sprintf("%v", val2) //need to coerce non-string values into strings.  for example ints might be perfectly valid for parameter substitution in a url
 			default:
-				return "", errors.New(fmt.Sprintf("Invalid Data Source Substitution: %s\n", match[0]))
+				return "", fmt.Errorf("invalid data source substitution: %s", match[0])
 			}
 
 			strparam = strings.Replace(strparam, match[0], val, 1)
 		}
 		return strparam, nil
 	default:
-		return "", errors.New("Invalid parameter type")
+		return "", errors.New("invalid parameter type")
 	}
 }
