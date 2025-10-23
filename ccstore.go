@@ -1,9 +1,15 @@
 package cc
 
+import (
+	"fmt"
+	"os"
+)
+
 const (
 	localRootPath   = "/data"
 	RemoteRootPath  = "/cc_store"
 	payloadFileName = "payload"
+	CcStoreType     = "CC_STORE_TYPE"
 )
 
 type StoreType string
@@ -60,7 +66,16 @@ type PullObjectInput struct {
 }
 
 func NewCcStore(manifestArgs ...string) (CcStore, error) {
-	return NewS3CcStore(manifestArgs...)
+	storeType := os.Getenv(CcStoreType)
+
+	switch StoreType(storeType) {
+	case FSB:
+		return NewFSBCcStore(manifestArgs...)
+	case FSS3, "": // Default to S3 if no store type specified
+		return NewS3CcStore(manifestArgs...)
+	default:
+		return nil, fmt.Errorf("unsupported store type: %s", storeType)
+	}
 }
 
 // @TODO jobid is really the manifest id

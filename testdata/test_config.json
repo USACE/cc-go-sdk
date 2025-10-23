@@ -1,0 +1,19 @@
+{
+  "fsb_test": {
+    "store_type": "FS",
+    "root_path": "/tmp/cc-fsb-test",
+    "manifest_id": "test-manifest",
+    "payload_id": "test-payload"
+  },
+  "s3_test": {
+    "store_type": "S3",
+    "manifest_id": "s3-test-manifest",
+    "payload_id": "s3-test-payload"
+  },
+  "integration_test": {
+    "store_type": "FS",
+    "root_path": "/tmp/cc-integration-test",
+    "manifest_id": "integration-manifest",
+    "payload_id": "integration-payload"
+  }
+}

@@ -29,6 +29,7 @@ const (
 	AwsS3ForcePathStyle = "S3_FORCE_PATH_STYLE"
 	AwsS3DisableSSL     = "S3_DISABLE_SSL"
 	AwsS3Endpoint       = "AWS_ENDPOINT"
+	FsbRootPath         = "FSB_ROOT_PATH"
 )
 
 var substitutionRegex string = `{([^{}]*)}`
@@ -117,14 +118,17 @@ func InitPluginManager() (*PluginManager, error) {
 	var manager PluginManager
 	manager.EventIdentifier = os.Getenv(CcEventIdentifier)
 	manager.Logger = NewCcLogger(CcLoggerInput{manifestId, payloadId, nil})
-	s3Store, err := NewCcStore()
+
+	// Create the store based on configuration
+	store, err := NewCcStore()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
-	manager.ccStore = s3Store
-	payload, err := s3Store.GetPayload()
+
+	manager.ccStore = store
+	payload, err := store.GetPayload()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
 
 	manager.IOManager = payload.IOManager //@TODO do I absolutely need these two lines?

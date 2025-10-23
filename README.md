@@ -11,5 +11,28 @@ A plugin is a central idea to CC. A plugin simply allows for an externally gener
 # Payload
 A plugin computes off of a Payload. A Payload is defined by a dictionary of string and empty interface that describes a model for a plugin as well as a slice of DataSources that are inputs, and a slice of DataSources that are outputs. This is the structured way that CC can provide plugins information to compute within the framework.
 
+# Storage
+CC supports multiple storage backends for payloads and data. The SDK automatically selects the appropriate store based on environment configuration.
+
+## Supported Stores
+- **S3 (FSS3)**: AWS S3 cloud storage
+- **File System (FSB)**: Local mounted file system
+- **TileDB**: (In development) available in `tiledb-store/`, requires C dependencies
+
+## Local Storage
+```bash
+export CC_STORE_TYPE=FS
+export FSB_ROOT_PATH=/path/to/data
+```
+
+## S3 Storage
+```bash
+export CC_STORE_TYPE=S3
+export CC_AWS_ACCESS_KEY_ID=your_key
+export CC_AWS_SECRET_ACCESS_KEY=your_secret
+export CC_AWS_DEFAULT_REGION=us-east-1
+export CC_AWS_S3_BUCKET=your_bucket
+```
+
 # Software Development Kit
 The software development kit (SDK) provides the essential data structures and a handful of utility services to provide the necessary consistency needed for a developer to develop a plugin for a framework like CC. 

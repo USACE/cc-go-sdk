@@ -1,0 +1,10 @@
+{
+  "attributes": {
+    "test": "value",
+    "demo": "test"
+  },
+  "stores": [],
+  "inputs": [],
+  "outputs": [],
+  "actions": []
+}
