@@ -56,6 +56,11 @@ func (arb *ActionRunnerBase) SetName(name string) {
 	arb.ActionName = name
 }
 
+func (arb *ActionRunnerBase) Log(msg string, args ...any) {
+	args = append(args, "action", arb.ActionName)
+	arb.PluginManager.Logger.Action(msg, args...)
+}
+
 type ActionRunner interface {
 	Run() error
 }
@@ -179,7 +184,7 @@ func (pm *PluginManager) RunActions() error {
 				structType := pointerVal.Elem()
 				structType.FieldByName("PluginManager").Set(reflect.ValueOf(pm))
 				structType.FieldByName("Action").Set(reflect.ValueOf(action))
-				//structType.FieldByName("ActionName").Set(reflect.ValueOf(actionName))
+				structType.FieldByName("ActionName").Set(reflect.ValueOf(runnerName))
 				runMethod := pointerVal.MethodByName("Run") //must call method on the pointer receiver
 				if runMethod.IsValid() {
 					results := runMethod.Call(nil)

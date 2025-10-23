@@ -55,9 +55,20 @@ func NewCcLogger(input CcLoggerInput) *CcLogger {
 }
 
 // Action logs an action-related message with the specified log level and attributes.
-func (l *CcLogger) Action(msg string, args ...slog.Attr) {
+// func (l *CcLogger) Action(msg string, args ...slog.Attr) {
+// 	ctx := context.Background()
+// 	l.Logger.Log(ctx, LevelAction, msg, args...)
+// }
+
+// Action logs an action-related message with the specified log level and attributes.
+func (l *CcLogger) Action(msg string, args ...any) {
 	ctx := context.Background()
-	l.Log(ctx, LevelAction, msg)
+	l.Logger.Log(ctx, LevelAction, msg, args...)
+}
+
+func (l *CcLogger) Actionf(msg string, args ...any) {
+	ctx := context.Background()
+	l.Logger.Log(ctx, LevelAction, fmt.Sprintf(msg, args...))
 }
 
 // SendMessage logs a send message event to channel
