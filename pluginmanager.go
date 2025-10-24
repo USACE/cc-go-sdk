@@ -32,8 +32,8 @@ const (
 	FsbRootPath         = "FSB_ROOT_PATH"
 )
 
-var substitutionRegex string = `{([^{}]*)}`
-var rx *regexp.Regexp
+var substitutionRegexPattern string = `{([^{}]*)}`
+var substitutionRegex *regexp.Regexp
 
 var maxretry int = 100
 
@@ -57,6 +57,9 @@ func (arb *ActionRunnerBase) SetName(name string) {
 }
 
 func (arb *ActionRunnerBase) Log(msg string, args ...any) {
+	if args == nil {
+		args = []any{}
+	}
 	args = append(args, "action", arb.ActionName)
 	arb.PluginManager.Logger.Action(msg, args...)
 }
@@ -119,7 +122,7 @@ func InitPluginManager() (*PluginManager, error) {
 	manifestId := os.Getenv(CcManifestId)
 	payloadId := os.Getenv(CcPayloadId)
 	registerStoreTypes()
-	rx, _ = regexp.Compile(substitutionRegex)
+	substitutionRegex, _ = regexp.Compile(substitutionRegexPattern)
 	var manager PluginManager
 	manager.EventIdentifier = os.Getenv(CcEventIdentifier)
 	manager.Logger = NewCcLogger(CcLoggerInput{manifestId, payloadId, nil})
@@ -346,10 +349,9 @@ func pathsSubstitute(ds *DataSource, payloadAttr map[string]any) error {
 }
 
 func parameterSubstitute(param interface{}, payloadAttr map[string]any, attrSub bool) (string, error) {
-	switch param.(type) {
+	switch template := param.(type) {
 	case string:
-		strparam := param.(string)
-		result := rx.FindAllStringSubmatch(strparam, -1)
+		result := substitutionRegex.FindAllStringSubmatch(template, -1)
 		for _, match := range result {
 			sub := strings.Split(match[1], "::")
 			if len(sub) != 2 {
@@ -369,13 +371,28 @@ func parameterSubstitute(param interface{}, payloadAttr map[string]any, attrSub 
 				}
 				val = fmt.Sprintf("%v", val2) //need to coerce non-string values into strings.  for example ints might be perfectly valid for parameter substitution in a url
 			default:
-				return "", fmt.Errorf("invalid data source substitution: %s", match[0])
+				continue //if its not ENV or ATTR, skip the substitution
 			}
-
-			strparam = strings.Replace(strparam, match[0], val, 1)
+			template = strings.Replace(template, match[0], val, 1)
 		}
-		return strparam, nil
+		return template, nil
 	default:
 		return "", errors.New("invalid parameter type")
 	}
+}
+
+func templateVarSubstitution(template string, templateVars map[string]string) string {
+	result := substitutionRegex.FindAllStringSubmatch(template, -1)
+	for _, match := range result {
+		sub := strings.Split(match[1], "::")
+		if len(sub) != 2 {
+			continue
+		}
+		if sub[0] == "VAR" {
+			if val, ok := templateVars[sub[1]]; ok {
+				template = strings.Replace(template, match[0], val, 1)
+			}
+		}
+	}
+	return template
 }

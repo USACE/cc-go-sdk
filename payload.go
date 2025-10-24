@@ -90,9 +90,17 @@ type GetDsInput struct {
 }
 
 type DataSourceOpInput struct {
+	DataSource     *DataSource
 	DataSourceName string
 	PathKey        string
 	DataPathKey    string
+	TemplateVars   map[string]string
+}
+
+// used for key value template variable substitution
+type KeyValue struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type PutOpInput struct {
@@ -171,16 +179,28 @@ func (im *IOManager) GetAbsolutePath(storename string, sourcename string, pathna
 }
 
 func (im *IOManager) GetReader(input DataSourceOpInput) (io.ReadCloser, error) {
-	dataSource, err := im.GetInputDataSource(input.DataSourceName)
-	if err != nil {
-		return nil, err
+	var err error
+	var dataSource DataSource
+	if input.DataSource == nil {
+		dataSource, err = im.GetInputDataSource(input.DataSourceName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dataSource = *input.DataSource
 	}
+
 	dataStore, err := im.GetStore(dataSource.StoreName)
 	if err != nil {
 		return nil, err
 	}
 	if readerStore, ok := dataStore.Session.(StoreReader); ok {
 		path := dataSource.Paths[input.PathKey]
+		//
+		if len(input.TemplateVars) > 0 {
+			path = templateVarSubstitution(path, input.TemplateVars)
+		}
+		//
 		datapath := ""
 		if input.DataPathKey != "" {
 			datapath = dataSource.DataPaths[input.DataPathKey]
